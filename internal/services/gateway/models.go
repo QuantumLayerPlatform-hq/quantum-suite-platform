@@ -1,6 +1,5 @@
 package gateway
 
-import "time"
 
 // Health check models
 type HealthResponse struct {

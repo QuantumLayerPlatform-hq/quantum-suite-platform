@@ -223,9 +223,11 @@ type GoldenImageCreated struct {
 	Name           string    `json:"name"`
 	ImageVersion   string    `json:"image_version"`
 	BaseOS         string    `json:"base_os"`
-	Size        int64     `json:"size"`
-	Checksum    string    `json:"checksum"`
+	Size           int64     `json:"size"`
+	Checksum       string    `json:"checksum"`
 }
+
+func (e *GoldenImageCreated) Version() int64 { return e.BaseDomainEvent.Version() }
 
 // QSecure Events
 type SecurityScanStarted struct {

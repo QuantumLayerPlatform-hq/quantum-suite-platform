@@ -26,10 +26,11 @@ const (
 	ErrorTypeProviderLimit ErrorType = "provider_limit"
 	
 	// System errors
-	ErrorTypeInternal      ErrorType = "internal_error"
-	ErrorTypeTimeout       ErrorType = "timeout"
-	ErrorTypeUnavailable   ErrorType = "service_unavailable"
-	ErrorTypeExternal      ErrorType = "external_service_error"
+	ErrorTypeInternal       ErrorType = "internal_error"
+	ErrorTypeConfiguration  ErrorType = "configuration_error"
+	ErrorTypeTimeout        ErrorType = "timeout"
+	ErrorTypeUnavailable    ErrorType = "service_unavailable"
+	ErrorTypeExternal       ErrorType = "external_service_error"
 	
 	// Provider errors
 	ErrorTypeProviderError       ErrorType = "provider_error"
@@ -42,10 +43,16 @@ const (
 type ErrorSeverity string
 
 const (
-	SeverityLow      ErrorSeverity = "low"
-	SeverityMedium   ErrorSeverity = "medium"
-	SeverityHigh     ErrorSeverity = "high"
-	SeverityCritical ErrorSeverity = "critical"
+	ErrorSeverityLow      ErrorSeverity = "low"
+	ErrorSeverityMedium   ErrorSeverity = "medium"
+	ErrorSeverityHigh     ErrorSeverity = "high"
+	ErrorSeverityCritical ErrorSeverity = "critical"
+	
+	// Legacy aliases for backwards compatibility
+	SeverityLow      = ErrorSeverityLow
+	SeverityMedium   = ErrorSeverityMedium
+	SeverityHigh     = ErrorSeverityHigh
+	SeverityCritical = ErrorSeverityCritical
 )
 
 // QLensError represents a structured error in the QLens system
@@ -524,4 +531,12 @@ func LogError(logger interface{}, err error) {
 	} else {
 		fmt.Printf("ERROR: %v\n", err)
 	}
+}
+// ConfigurationError creates a configuration error
+func ConfigurationError(message string) *QLensError {
+	return NewError(ErrorTypeConfiguration, message).
+		WithCode("CONFIGURATION_ERROR").
+		WithSeverity(ErrorSeverityHigh).
+		WithRetryable(false).
+		Build()
 }

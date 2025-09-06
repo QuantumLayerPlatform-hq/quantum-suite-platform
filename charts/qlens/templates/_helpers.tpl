@@ -129,8 +129,8 @@ Create component image name
 {{- $registry := .Values.global.imageRegistry -}}
 {{- $repository := .Values.global.imageRepository -}}
 {{- $component := .component -}}
-{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
-{{- printf "%s/%s-%s:%s" $registry $repository $component $tag -}}
+{{- $tag := .Values.image.tag | default "1.0.0" -}}
+{{- printf "%s/%s/qlens-%s:%s" $registry $repository $component $tag -}}
 {{- end }}
 
 {{/*

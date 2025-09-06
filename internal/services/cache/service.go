@@ -3,13 +3,13 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	goerrors "errors"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quantum-suite/platform/internal/domain"
 	"github.com/quantum-suite/platform/pkg/shared/env"
 	"github.com/quantum-suite/platform/pkg/shared/errors"
 	"github.com/quantum-suite/platform/pkg/shared/logger"
@@ -64,7 +64,7 @@ type HealthResponse struct {
 func NewService(config *env.Config, log logger.Logger) (*Service, error) {
 	service := &Service{
 		config: config,
-		logger: log.WithService("cache"),
+		logger: log.WithField("service", "cache"),
 	}
 
 	// Initialize cache store
@@ -95,7 +95,7 @@ func (s *Service) initializeStore() error {
 }
 
 func (s *Service) setupRouter() {
-	if s.config.Environment == env.EnvironmentProduction {
+	if s.config.Environment == env.Production {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -313,7 +313,7 @@ func (s *Service) handleStats(c *gin.Context) {
 
 func (s *Service) respondWithError(c *gin.Context, err error) {
 	var qlensErr *errors.QLensError
-	if !errors.Is(err, &qlensErr) {
+	if !goerrors.As(err, &qlensErr) {
 		qlensErr = errors.InternalError("unexpected error", err)
 	}
 

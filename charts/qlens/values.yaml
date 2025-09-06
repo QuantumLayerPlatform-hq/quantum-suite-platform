@@ -1,7 +1,7 @@
 # Default values for qlens
 global:
   imageRegistry: ghcr.io
-  imageRepository: quantum-suite/qlens
+  imageRepository: quantumlayerplatform-hq/quantum-suite-platform
   imagePullSecrets:
     - name: ghcr-secret
   

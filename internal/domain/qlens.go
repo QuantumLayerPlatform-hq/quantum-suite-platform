@@ -202,6 +202,8 @@ type EmbeddingRequest struct {
 	BaseAggregateRoot
 	TenantID        TenantID    `json:"tenant_id"`
 	UserID          UserID      `json:"user_id"`
+	RequestID       string      `json:"request_id"`
+	Priority        Priority    `json:"priority"`
 	Provider        Provider    `json:"provider"`
 	Model           string      `json:"model"`
 	Input           []string    `json:"input"`

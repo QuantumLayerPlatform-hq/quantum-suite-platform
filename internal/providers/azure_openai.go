@@ -8,13 +8,10 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/quantum-suite/platform/internal/domain"
-	"github.com/quantum-suite/platform/internal/services/router"
 	"github.com/quantum-suite/platform/pkg/shared/errors"
 	"github.com/quantum-suite/platform/pkg/shared/logger"
 )
@@ -224,7 +221,7 @@ func generateModelList(deployments map[string]string) []domain.Model {
 	return models
 }
 
-func (c *AzureOpenAIClient) CreateCompletion(ctx context.Context, req *router.CompletionRequest) (*router.CompletionResponse, error) {
+func (c *AzureOpenAIClient) CreateCompletion(ctx context.Context, req *domain.CompletionRequest) (*domain.CompletionResponse, error) {
 	azureReq := c.convertCompletionRequest(req)
 	
 	url := fmt.Sprintf("%s/openai/deployments/%s/chat/completions?api-version=%s",
@@ -244,13 +241,13 @@ func (c *AzureOpenAIClient) CreateCompletion(ctx context.Context, req *router.Co
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, errors.ProviderError("azure openai request failed", err)
+		return nil, errors.ProviderError("azure-openai", "azure openai request failed", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.ProviderError("failed to read response", err)
+		return nil, errors.ProviderError("azure-openai", "failed to read response", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -259,17 +256,17 @@ func (c *AzureOpenAIClient) CreateCompletion(ctx context.Context, req *router.Co
 
 	var azureResp azureOpenAIResponse
 	if err := json.Unmarshal(respBody, &azureResp); err != nil {
-		return nil, errors.ProviderError("failed to parse response", err)
+		return nil, errors.ProviderError("azure-openai", "failed to parse response", err)
 	}
 
 	if azureResp.Error != nil {
-		return nil, errors.ProviderError(azureResp.Error.Message, nil)
+		return nil, errors.ProviderError("azure-openai", azureResp.Error.Message, nil)
 	}
 
 	return c.convertCompletionResponse(&azureResp, req.Model), nil
 }
 
-func (c *AzureOpenAIClient) CreateCompletionStream(ctx context.Context, req *router.CompletionRequest) (<-chan *router.StreamResponse, error) {
+func (c *AzureOpenAIClient) CreateCompletionStream(ctx context.Context, req *domain.CompletionRequest) (<-chan *domain.StreamResponse, error) {
 	azureReq := c.convertCompletionRequest(req)
 	azureReq.Stream = true
 
@@ -291,7 +288,7 @@ func (c *AzureOpenAIClient) CreateCompletionStream(ctx context.Context, req *rou
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, errors.ProviderError("azure openai stream request failed", err)
+		return nil, errors.ProviderError("azure-openai", "azure openai stream request failed", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -303,7 +300,7 @@ func (c *AzureOpenAIClient) CreateCompletionStream(ctx context.Context, req *rou
 	return c.processStreamResponse(resp, req.Model), nil
 }
 
-func (c *AzureOpenAIClient) CreateEmbeddings(ctx context.Context, req *router.EmbeddingRequest) (*router.EmbeddingResponse, error) {
+func (c *AzureOpenAIClient) CreateEmbeddings(ctx context.Context, req *domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
 	azureReq := azureOpenAIEmbeddingRequest{
 		Input:          req.Input,
 		Model:          req.Model,
@@ -329,13 +326,13 @@ func (c *AzureOpenAIClient) CreateEmbeddings(ctx context.Context, req *router.Em
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, errors.ProviderError("azure openai embeddings request failed", err)
+		return nil, errors.ProviderError("azure-openai", "azure openai embeddings request failed", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.ProviderError("failed to read response", err)
+		return nil, errors.ProviderError("azure-openai", "failed to read response", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -344,11 +341,11 @@ func (c *AzureOpenAIClient) CreateEmbeddings(ctx context.Context, req *router.Em
 
 	var azureResp azureOpenAIEmbeddingResponse
 	if err := json.Unmarshal(respBody, &azureResp); err != nil {
-		return nil, errors.ProviderError("failed to parse response", err)
+		return nil, errors.ProviderError("azure-openai", "failed to parse response", err)
 	}
 
 	if azureResp.Error != nil {
-		return nil, errors.ProviderError(azureResp.Error.Message, nil)
+		return nil, errors.ProviderError("azure-openai", azureResp.Error.Message, nil)
 	}
 
 	return c.convertEmbeddingResponse(&azureResp), nil
@@ -381,7 +378,7 @@ func (c *AzureOpenAIClient) HealthCheck(ctx context.Context) error {
 	return fmt.Errorf("health check failed with status %d", resp.StatusCode)
 }
 
-func (c *AzureOpenAIClient) convertCompletionRequest(req *router.CompletionRequest) *azureOpenAIRequest {
+func (c *AzureOpenAIClient) convertCompletionRequest(req *domain.CompletionRequest) *azureOpenAIRequest {
 	messages := make([]azureOpenAIMessage, len(req.Messages))
 	for i, msg := range req.Messages {
 		content := ""
@@ -410,7 +407,7 @@ func (c *AzureOpenAIClient) convertCompletionRequest(req *router.CompletionReque
 	}
 }
 
-func (c *AzureOpenAIClient) convertCompletionResponse(azureResp *azureOpenAIResponse, modelID string) *router.CompletionResponse {
+func (c *AzureOpenAIClient) convertCompletionResponse(azureResp *azureOpenAIResponse, modelID string) *domain.CompletionResponse {
 	choices := make([]domain.Choice, len(azureResp.Choices))
 	for i, choice := range azureResp.Choices {
 		message := domain.Message{
@@ -437,7 +434,7 @@ func (c *AzureOpenAIClient) convertCompletionResponse(azureResp *azureOpenAIResp
 		CostUSD:          c.calculateCost(modelID, azureResp.Usage),
 	}
 
-	return &router.CompletionResponse{
+	return &domain.CompletionResponse{
 		ID:       azureResp.ID,
 		Object:   azureResp.Object,
 		Created:  azureResp.Created,
@@ -448,7 +445,7 @@ func (c *AzureOpenAIClient) convertCompletionResponse(azureResp *azureOpenAIResp
 	}
 }
 
-func (c *AzureOpenAIClient) convertEmbeddingResponse(azureResp *azureOpenAIEmbeddingResponse) *router.EmbeddingResponse {
+func (c *AzureOpenAIClient) convertEmbeddingResponse(azureResp *azureOpenAIEmbeddingResponse) *domain.EmbeddingResponse {
 	data := make([]domain.Embedding, len(azureResp.Data))
 	for i, item := range azureResp.Data {
 		data[i] = domain.Embedding{
@@ -464,7 +461,7 @@ func (c *AzureOpenAIClient) convertEmbeddingResponse(azureResp *azureOpenAIEmbed
 		CostUSD:      c.calculateEmbeddingCost(azureResp.Model, azureResp.Usage),
 	}
 
-	return &router.EmbeddingResponse{
+	return &domain.EmbeddingResponse{
 		Object:   azureResp.Object,
 		Data:     data,
 		Model:    azureResp.Model,
@@ -473,8 +470,8 @@ func (c *AzureOpenAIClient) convertEmbeddingResponse(azureResp *azureOpenAIEmbed
 	}
 }
 
-func (c *AzureOpenAIClient) processStreamResponse(resp *http.Response, modelID string) <-chan *router.StreamResponse {
-	ch := make(chan *router.StreamResponse)
+func (c *AzureOpenAIClient) processStreamResponse(resp *http.Response, modelID string) <-chan *domain.StreamResponse {
+	ch := make(chan *domain.StreamResponse)
 
 	go func() {
 		defer close(ch)
@@ -486,8 +483,8 @@ func (c *AzureOpenAIClient) processStreamResponse(resp *http.Response, modelID s
 			var line string
 			if err := decoder.Decode(&line); err != nil {
 				if err != io.EOF {
-					ch <- &router.StreamResponse{
-						Error: errors.ProviderError("failed to read stream", err),
+					ch <- &domain.StreamResponse{
+						Error: errors.ProviderError("azure-openai", "failed to read stream", err),
 					}
 				}
 				return
@@ -499,7 +496,7 @@ func (c *AzureOpenAIClient) processStreamResponse(resp *http.Response, modelID s
 
 			data := strings.TrimPrefix(line, "data: ")
 			if data == "[DONE]" {
-				ch <- &router.StreamResponse{Done: true}
+				ch <- &domain.StreamResponse{Done: true}
 				return
 			}
 
@@ -509,8 +506,8 @@ func (c *AzureOpenAIClient) processStreamResponse(resp *http.Response, modelID s
 			}
 
 			if azureResp.Error != nil {
-				ch <- &router.StreamResponse{
-					Error: errors.ProviderError(azureResp.Error.Message, nil),
+				ch <- &domain.StreamResponse{
+					Error: errors.ProviderError("azure-openai", azureResp.Error.Message, nil),
 				}
 				return
 			}
@@ -523,7 +520,7 @@ func (c *AzureOpenAIClient) processStreamResponse(resp *http.Response, modelID s
 	return ch
 }
 
-func (c *AzureOpenAIClient) convertStreamResponse(azureResp *azureOpenAIResponse, modelID string) *router.StreamResponse {
+func (c *AzureOpenAIClient) convertStreamResponse(azureResp *azureOpenAIResponse, modelID string) *domain.StreamResponse {
 	choices := make([]domain.Choice, len(azureResp.Choices))
 	for i, choice := range azureResp.Choices {
 		content := ""
@@ -548,7 +545,7 @@ func (c *AzureOpenAIClient) convertStreamResponse(azureResp *azureOpenAIResponse
 		}
 	}
 
-	return &router.StreamResponse{
+	return &domain.StreamResponse{
 		ID:       azureResp.ID,
 		Object:   azureResp.Object,
 		Created:  azureResp.Created,
@@ -594,13 +591,13 @@ func (c *AzureOpenAIClient) handleHTTPError(statusCode int, body []byte) error {
 		case http.StatusForbidden:
 			return errors.AuthorizationError(azureError.Message)
 		case http.StatusTooManyRequests:
-			return errors.RateLimitError(azureError.Message)
+			return errors.NewError(errors.ErrorTypeTooManyRequests, azureError.Message).WithRetryable(true).Build()
 		case http.StatusBadRequest:
 			return errors.ValidationError(azureError.Message, "request")
 		default:
-			return errors.ProviderError(azureError.Message, nil)
+			return errors.ProviderError("azure-openai", azureError.Message, nil)
 		}
 	}
 
-	return errors.ProviderError(fmt.Sprintf("azure openai api error: %d", statusCode), nil)
+	return errors.ProviderError("azure-openai", fmt.Sprintf("azure openai api error: %d", statusCode), nil)
 }

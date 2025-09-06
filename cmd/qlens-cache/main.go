@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -14,13 +15,10 @@ import (
 )
 
 func main() {
-	cfg, err := env.LoadConfig()
-	if err != nil {
-		panic("Failed to load configuration: " + err.Error())
-	}
+	cfg := env.DetectEnvironment()
 
 	log := logger.NewFromEnv().
-		WithService("qlens-cache").
+		WithField("service", "qlens-cache").
 		WithField("version", cfg.Version)
 
 	log.Info("Starting QLens Cache", logger.F("port", cfg.Port))
@@ -31,11 +29,11 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
+		Addr:    ":" + strconv.Itoa(cfg.Port),
 		Handler: cacheService.Handler(),
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		IdleTimeout:    30 * time.Second,
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   30 * time.Second,
+		IdleTimeout:    60 * time.Second,
 	}
 
 	// Start server in background
@@ -55,7 +53,7 @@ func main() {
 	log.Info("Shutting down QLens Cache...")
 
 	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {

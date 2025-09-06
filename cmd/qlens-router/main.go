@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -14,13 +15,10 @@ import (
 )
 
 func main() {
-	cfg, err := env.LoadConfig()
-	if err != nil {
-		panic("Failed to load configuration: " + err.Error())
-	}
+	cfg := env.DetectEnvironment()
 
 	log := logger.NewFromEnv().
-		WithService("qlens-router").
+		WithField("service", "qlens-router").
 		WithField("version", cfg.Version)
 
 	log.Info("Starting QLens Router", logger.F("port", cfg.Port))
@@ -31,7 +29,7 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
+		Addr:    ":" + strconv.Itoa(cfg.Port),
 		Handler: routerService.Handler(),
 		ReadTimeout:    60 * time.Second, // Longer for LLM requests
 		WriteTimeout:   60 * time.Second,

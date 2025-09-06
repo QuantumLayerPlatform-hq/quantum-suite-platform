@@ -1,7 +1,6 @@
 package providers
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,10 +12,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
-	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
+	bedrocktypes "github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
 	"github.com/google/uuid"
 	"github.com/quantum-suite/platform/internal/domain"
-	"github.com/quantum-suite/platform/internal/services/router"
 	"github.com/quantum-suite/platform/pkg/shared/errors"
 	"github.com/quantum-suite/platform/pkg/shared/logger"
 )
@@ -118,36 +116,36 @@ var bedrockModelPricing = map[string]domain.ModelPricing{
 	},
 }
 
-func NewAWSBedrockClient(config AWSBedrockConfig, logger logger.Logger) (*AWSBedrockClient, error) {
-	if config.Region == "" {
-		config.Region = os.Getenv("AWS_REGION")
-		if config.Region == "" {
-			config.Region = bedrockDefaultRegion
+func NewAWSBedrockClient(bedrockConfig AWSBedrockConfig, logger logger.Logger) (*AWSBedrockClient, error) {
+	if bedrockConfig.Region == "" {
+		bedrockConfig.Region = os.Getenv("AWS_REGION")
+		if bedrockConfig.Region == "" {
+			bedrockConfig.Region = bedrockDefaultRegion
 		}
 	}
 
-	if config.AccessKeyID == "" {
-		config.AccessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
+	if bedrockConfig.AccessKeyID == "" {
+		bedrockConfig.AccessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
 	}
-	if config.SecretAccessKey == "" {
-		config.SecretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+	if bedrockConfig.SecretAccessKey == "" {
+		bedrockConfig.SecretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 	}
-	if config.SessionToken == "" {
-		config.SessionToken = os.Getenv("AWS_SESSION_TOKEN")
+	if bedrockConfig.SessionToken == "" {
+		bedrockConfig.SessionToken = os.Getenv("AWS_SESSION_TOKEN")
 	}
 
 	cfg, err := config.LoadDefaultConfig(context.Background(),
-		config.WithRegion(config.Region),
+		config.WithRegion(bedrockConfig.Region),
 	)
 	if err != nil {
 		return nil, errors.ConfigurationError("failed to load aws config: " + err.Error())
 	}
 
-	if config.AccessKeyID != "" && config.SecretAccessKey != "" {
+	if bedrockConfig.AccessKeyID != "" && bedrockConfig.SecretAccessKey != "" {
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(
-			config.AccessKeyID,
-			config.SecretAccessKey,
-			config.SessionToken,
+			bedrockConfig.AccessKeyID,
+			bedrockConfig.SecretAccessKey,
+			bedrockConfig.SessionToken,
 		)
 	}
 
@@ -155,9 +153,9 @@ func NewAWSBedrockClient(config AWSBedrockConfig, logger logger.Logger) (*AWSBed
 
 	return &AWSBedrockClient{
 		client: client,
-		region: config.Region,
+		region: bedrockConfig.Region,
 		logger: logger,
-		models: generateBedrockModelList(config.Models),
+		models: generateBedrockModelList(bedrockConfig.Models),
 	}, nil
 }
 
@@ -200,7 +198,7 @@ func generateBedrockModelList(modelConfigs []BedrockModelConfig) []domain.Model 
 	return models
 }
 
-func (c *AWSBedrockClient) CreateCompletion(ctx context.Context, req *router.CompletionRequest) (*router.CompletionResponse, error) {
+func (c *AWSBedrockClient) CreateCompletion(ctx context.Context, req *domain.CompletionRequest) (*domain.CompletionResponse, error) {
 	modelID := c.findModelID(req.Model)
 	if modelID == "" {
 		return nil, errors.ValidationError("model not found", "model")
@@ -227,17 +225,17 @@ func (c *AWSBedrockClient) CreateCompletion(ctx context.Context, req *router.Com
 
 	var claudeResp claudeResponse
 	if err := json.Unmarshal(result.Body, &claudeResp); err != nil {
-		return nil, errors.ProviderError("failed to parse response", err)
+		return nil, errors.ProviderError("bedrock", "failed to parse response", err)
 	}
 
 	if claudeResp.Error != nil {
-		return nil, errors.ProviderError(claudeResp.Error.Message, nil)
+		return nil, errors.ProviderError("bedrock", claudeResp.Error.Message, nil)
 	}
 
 	return c.convertCompletionResponse(&claudeResp, req.Model), nil
 }
 
-func (c *AWSBedrockClient) CreateCompletionStream(ctx context.Context, req *router.CompletionRequest) (<-chan *router.StreamResponse, error) {
+func (c *AWSBedrockClient) CreateCompletionStream(ctx context.Context, req *domain.CompletionRequest) (<-chan *domain.StreamResponse, error) {
 	modelID := c.findModelID(req.Model)
 	if modelID == "" {
 		return nil, errors.ValidationError("model not found", "model")
@@ -263,11 +261,11 @@ func (c *AWSBedrockClient) CreateCompletionStream(ctx context.Context, req *rout
 		return nil, c.handleAWSError(err)
 	}
 
-	return c.processStreamResponse(result.GetStream(), req.Model), nil
+	return c.processStreamResponse(result, req.Model), nil
 }
 
-func (c *AWSBedrockClient) CreateEmbeddings(ctx context.Context, req *router.EmbeddingRequest) (*router.EmbeddingResponse, error) {
-	return nil, errors.NotImplementedError("embeddings not supported by bedrock claude models")
+func (c *AWSBedrockClient) CreateEmbeddings(ctx context.Context, req *domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
+	return nil, errors.InternalError("embeddings not supported by bedrock claude models", nil)
 }
 
 func (c *AWSBedrockClient) ListModels(ctx context.Context) ([]domain.Model, error) {
@@ -314,7 +312,7 @@ func (c *AWSBedrockClient) HealthCheck(ctx context.Context) error {
 	return err
 }
 
-func (c *AWSBedrockClient) convertCompletionRequest(req *router.CompletionRequest) *claudeRequest {
+func (c *AWSBedrockClient) convertCompletionRequest(req *domain.CompletionRequest) *claudeRequest {
 	messages := []claudeMessage{}
 	systemMessage := ""
 
@@ -364,7 +362,7 @@ func (c *AWSBedrockClient) convertCompletionRequest(req *router.CompletionReques
 	return claudeReq
 }
 
-func (c *AWSBedrockClient) convertCompletionResponse(claudeResp *claudeResponse, modelID string) *router.CompletionResponse {
+func (c *AWSBedrockClient) convertCompletionResponse(claudeResp *claudeResponse, modelID string) *domain.CompletionResponse {
 	content := ""
 	if len(claudeResp.Content) > 0 {
 		content = claudeResp.Content[0].Text
@@ -393,7 +391,7 @@ func (c *AWSBedrockClient) convertCompletionResponse(claudeResp *claudeResponse,
 		CostUSD:          c.calculateCost(c.findModelID(modelID), claudeResp.Usage),
 	}
 
-	return &router.CompletionResponse{
+	return &domain.CompletionResponse{
 		ID:       claudeResp.ID,
 		Object:   "chat.completion",
 		Created:  time.Now().Unix(),
@@ -404,21 +402,19 @@ func (c *AWSBedrockClient) convertCompletionResponse(claudeResp *claudeResponse,
 	}
 }
 
-func (c *AWSBedrockClient) processStreamResponse(stream *bedrockruntime.ResponseStream, modelID string) <-chan *router.StreamResponse {
-	ch := make(chan *router.StreamResponse)
+func (c *AWSBedrockClient) processStreamResponse(stream *bedrockruntime.InvokeModelWithResponseStreamOutput, modelID string) <-chan *domain.StreamResponse {
+	ch := make(chan *domain.StreamResponse)
 
 	go func() {
 		defer close(ch)
 		
-		responseID := uuid.New().String()
-		
-		for event := range stream.Events() {
+		for event := range stream.GetStream().Events() {
 			switch v := event.(type) {
-			case *types.ResponseStreamMemberChunk:
+			case *bedrocktypes.ResponseStreamMemberChunk:
 				var streamResp claudeStreamResponse
 				if err := json.Unmarshal(v.Value.Bytes, &streamResp); err != nil {
-					ch <- &router.StreamResponse{
-						Error: errors.ProviderError("failed to parse stream response", err),
+					ch <- &domain.StreamResponse{
+						Error: errors.ProviderError("bedrock", "failed to parse stream response", err),
 					}
 					return
 				}
@@ -439,8 +435,8 @@ func (c *AWSBedrockClient) processStreamResponse(stream *bedrockruntime.Response
 						Message: message,
 					}
 
-					ch <- &router.StreamResponse{
-						ID:       responseID,
+					ch <- &domain.StreamResponse{
+						ID:       uuid.New().String(),
 						Object:   "chat.completion.chunk",
 						Created:  time.Now().Unix(),
 						Model:    modelID,
@@ -448,36 +444,16 @@ func (c *AWSBedrockClient) processStreamResponse(stream *bedrockruntime.Response
 						Choices:  []domain.Choice{choice},
 					}
 				} else if streamResp.Type == "message_stop" {
-					ch <- &router.StreamResponse{Done: true}
+					ch <- &domain.StreamResponse{Done: true}
 					return
 				}
 
-			case *types.ResponseStreamMemberInternalServerException:
-				ch <- &router.StreamResponse{
-					Error: errors.ProviderError("bedrock internal server error", nil),
-				}
-				return
-
-			case *types.ResponseStreamMemberModelStreamErrorException:
-				ch <- &router.StreamResponse{
-					Error: errors.ProviderError("bedrock model stream error", nil),
-				}
-				return
-
-			case *types.ResponseStreamMemberThrottlingException:
-				ch <- &router.StreamResponse{
-					Error: errors.RateLimitError("bedrock throttling error"),
-				}
-				return
-
-			case *types.ResponseStreamMemberValidationException:
-				ch <- &router.StreamResponse{
-					Error: errors.ValidationError("bedrock validation error", "request"),
-				}
-				return
-
 			default:
-				continue
+				// Handle error cases - stream ended or error occurred
+				ch <- &domain.StreamResponse{
+					Error: errors.ProviderError("bedrock", "stream processing error", nil),
+				}
+				return
 			}
 		}
 	}()
@@ -527,7 +503,7 @@ func (c *AWSBedrockClient) handleAWSError(err error) error {
 	errStr := err.Error()
 	
 	if strings.Contains(errStr, "throttling") || strings.Contains(errStr, "rate") {
-		return errors.RateLimitError("aws bedrock rate limit exceeded")
+		return errors.InternalError("aws bedrock rate limit exceeded", nil)
 	}
 	
 	if strings.Contains(errStr, "unauthorized") || strings.Contains(errStr, "access denied") {
@@ -538,5 +514,5 @@ func (c *AWSBedrockClient) handleAWSError(err error) error {
 		return errors.ValidationError("aws bedrock validation error", "request")
 	}
 
-	return errors.ProviderError("aws bedrock error: " + errStr, err)
+	return errors.ProviderError("bedrock", "aws bedrock error: " + errStr, err)
 }

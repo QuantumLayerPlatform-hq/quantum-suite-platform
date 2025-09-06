@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	goerrors "errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/quantum-suite/platform/internal/domain"
+	"github.com/quantum-suite/platform/internal/services/gateway/clients"
 	"github.com/quantum-suite/platform/pkg/shared/env"
 	"github.com/quantum-suite/platform/pkg/shared/errors"
 	"github.com/quantum-suite/platform/pkg/shared/logger"
@@ -27,32 +29,37 @@ type Service struct {
 
 // RouterClient defines the interface for routing requests
 type RouterClient interface {
-	RouteCompletion(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error)
-	RouteCompletionStream(ctx context.Context, req *CompletionRequest) (<-chan *StreamResponse, error)
-	RouteEmbedding(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error)
-	ListModels(ctx context.Context, opts *ListModelsOptions) (*ModelsResponse, error)
-	HealthCheck(ctx context.Context) (*HealthResponse, error)
+	RouteCompletion(ctx context.Context, req *domain.CompletionRequest) (*domain.CompletionResponse, error)
+	RouteCompletionStream(ctx context.Context, req *domain.CompletionRequest) (<-chan *domain.StreamResponse, error)
+	RouteEmbedding(ctx context.Context, req *domain.EmbeddingRequest) (*domain.EmbeddingResponse, error)
+	ListModels(ctx context.Context, opts *domain.ListModelsOptions) (*domain.ModelsResponse, error)
+	HealthCheck(ctx context.Context) (*domain.HealthResponse, error)
 }
 
 // CacheClient defines the interface for caching operations
 type CacheClient interface {
 	Get(ctx context.Context, key string) (interface{}, bool, error)
 	Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+	Delete(ctx context.Context, key string) error
+	Clear(ctx context.Context) error
+	Stats(ctx context.Context) map[string]interface{}
 }
 
 // MetricsClient defines the interface for metrics collection
 type MetricsClient interface {
-	IncrementRequestCount(tenantID, provider, model string)
-	RecordLatency(tenantID, provider, model string, duration time.Duration)
-	RecordTokens(tenantID, provider, model string, tokens int)
+	RecordRequest(ctx context.Context, method, endpoint, status string, duration time.Duration) error
+	RecordProviderRequest(ctx context.Context, provider, model, status string, duration time.Duration, tokens int) error
+	GetRequestCount(ctx context.Context, since time.Time) (int64, error)
+	GetErrorCount(ctx context.Context, since time.Time) (int64, error)
+	GetAverageLatency(ctx context.Context, since time.Time) (time.Duration, error)
+	GetProviderMetrics(ctx context.Context, provider string, since time.Time) (map[string]interface{}, error)
+	Health(ctx context.Context) error
 }
-
-// Use types from models.go to avoid duplication
 
 func NewService(config *env.Config, log logger.Logger) (*Service, error) {
 	service := &Service{
 		config: config,
-		logger: log.WithService("gateway"),
+		logger: log.WithField("service", "gateway"),
 	}
 
 	// Initialize clients based on environment
@@ -70,7 +77,7 @@ func (s *Service) initializeClients() error {
 	// In development, use in-process clients
 	// In production with Istio, use HTTP clients to other services
 	
-	if s.config.Environment == env.EnvironmentDevelopment {
+	if s.config.Environment == env.Development {
 		// Initialize in-process clients
 		return s.initializeInProcessClients()
 	}
@@ -80,22 +87,52 @@ func (s *Service) initializeClients() error {
 }
 
 func (s *Service) initializeInProcessClients() error {
-	// This would initialize the actual router, cache, and metrics clients
-	// For now, we'll use mock implementations
-	s.routerClient = &mockRouterClient{logger: s.logger}
-	s.cacheClient = &mockCacheClient{logger: s.logger}
-	s.metricsClient = &mockMetricsClient{logger: s.logger}
+	// For development - use HTTP clients to localhost services
+	routerURL := s.config.GetString("ROUTER_SERVICE_URL", "http://localhost:8106")
+	routerClient := clients.NewHTTPRouterClient(routerURL, s.logger)
+	s.routerClient = routerClient
+	
+	// Cache client - simple in-memory implementation
+	cacheClient := clients.NewSimpleCacheClient(s.logger)
+	s.cacheClient = cacheClient
+	
+	// Metrics client - Prometheus implementation (or simple for dev)
+	prometheusURL := s.config.GetString("PROMETHEUS_URL", "http://localhost:9090")
+	metricsClient, err := clients.NewPrometheusMetricsClient(prometheusURL, s.logger)
+	if err != nil {
+		// If Prometheus is not available in dev, we could use a simple logger-based client
+		s.logger.Warn("Prometheus not available, using simple metrics client", logger.F("error", err))
+		// For now, return error to maintain consistency
+		return fmt.Errorf("failed to initialize metrics client: %w", err)
+	}
+	s.metricsClient = metricsClient
+	
 	return nil
 }
 
 func (s *Service) initializeHTTPClients() error {
-	// Initialize HTTP clients to other microservices
-	// Implementation would depend on service discovery (Istio/K8s)
-	return errors.InternalError("HTTP clients not yet implemented", nil)
+	// Router service URL from Kubernetes service discovery
+	routerURL := s.config.GetString("ROUTER_SERVICE_URL", "http://qlens-router:8106")
+	routerClient := clients.NewHTTPRouterClient(routerURL, s.logger)
+	s.routerClient = routerClient
+	
+	// Cache client - simple in-memory implementation
+	cacheClient := clients.NewSimpleCacheClient(s.logger)
+	s.cacheClient = cacheClient
+	
+	// Metrics client - Prometheus implementation
+	prometheusURL := s.config.GetString("PROMETHEUS_URL", "http://prometheus:9090")
+	metricsClient, err := clients.NewPrometheusMetricsClient(prometheusURL, s.logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize metrics client: %w", err)
+	}
+	s.metricsClient = metricsClient
+	
+	return nil
 }
 
 func (s *Service) setupRouter() {
-	if s.config.Environment == env.EnvironmentProduction {
+	if s.config.Environment == env.Production {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -281,7 +318,7 @@ func (s *Service) handleLiveness(c *gin.Context) {
 func (s *Service) handleListModels(c *gin.Context) {
 	ctx := c.Request.Context()
 	
-	opts := &ListModelsOptions{}
+	opts := &domain.ListModelsOptions{}
 	
 	if provider := c.Query("provider"); provider != "" {
 		opts.Provider = domain.Provider(provider)
@@ -302,8 +339,9 @@ func (s *Service) handleListModels(c *gin.Context) {
 
 func (s *Service) handleCreateCompletion(c *gin.Context) {
 	ctx := c.Request.Context()
+	start := time.Now()
 	
-	var req CompletionRequest
+	var req domain.CompletionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		s.respondWithError(c, errors.ValidationError("invalid request format", "body"))
 		return
@@ -325,19 +363,23 @@ func (s *Service) handleCreateCompletion(c *gin.Context) {
 	}
 	
 	response, err := s.routerClient.RouteCompletion(ctx, &req)
+	duration := time.Since(start)
+	
 	if err != nil {
+		// Record error metrics
+		s.metricsClient.RecordRequest(ctx, "POST", "/v1/chat/completions", "error", duration)
 		s.respondWithError(c, err)
 		return
 	}
 	
-	// Record metrics
-	s.metricsClient.IncrementRequestCount(string(req.TenantID), string(response.Provider), response.Model)
-	s.metricsClient.RecordTokens(string(req.TenantID), string(response.Provider), response.Model, response.Usage.TotalTokens)
+	// Record success metrics
+	s.metricsClient.RecordRequest(ctx, "POST", "/v1/chat/completions", "success", duration)
+	s.metricsClient.RecordProviderRequest(ctx, string(response.Provider), response.Model, "success", duration, response.Usage.TotalTokens)
 	
 	c.JSON(http.StatusOK, response)
 }
 
-func (s *Service) handleStreamingCompletion(ctx context.Context, req *CompletionRequest, c *gin.Context) {
+func (s *Service) handleStreamingCompletion(ctx context.Context, req *domain.CompletionRequest, c *gin.Context) {
 	// Set headers for Server-Sent Events
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -385,8 +427,9 @@ func (s *Service) handleStreamingCompletion(ctx context.Context, req *Completion
 
 func (s *Service) handleCreateEmbeddings(c *gin.Context) {
 	ctx := c.Request.Context()
+	start := time.Now()
 	
-	var req EmbeddingRequest
+	var req domain.EmbeddingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		s.respondWithError(c, errors.ValidationError("invalid request format", "body"))
 		return
@@ -402,14 +445,18 @@ func (s *Service) handleCreateEmbeddings(c *gin.Context) {
 	}
 	
 	response, err := s.routerClient.RouteEmbedding(ctx, &req)
+	duration := time.Since(start)
+	
 	if err != nil {
+		// Record error metrics
+		s.metricsClient.RecordRequest(ctx, "POST", "/v1/embeddings", "error", duration)
 		s.respondWithError(c, err)
 		return
 	}
 	
-	// Record metrics
-	s.metricsClient.IncrementRequestCount(string(req.TenantID), string(response.Provider), response.Model)
-	s.metricsClient.RecordTokens(string(req.TenantID), string(response.Provider), response.Model, response.Usage.TotalTokens)
+	// Record success metrics
+	s.metricsClient.RecordRequest(ctx, "POST", "/v1/embeddings", "success", duration)
+	s.metricsClient.RecordProviderRequest(ctx, string(response.Provider), response.Model, "success", duration, response.Usage.TotalTokens)
 	
 	c.JSON(http.StatusOK, response)
 }
@@ -431,7 +478,7 @@ func (s *Service) handleMetrics(c *gin.Context) {
 
 // Helper methods
 
-func (s *Service) enrichCompletionRequest(req *CompletionRequest, c *gin.Context) {
+func (s *Service) enrichCompletionRequest(req *domain.CompletionRequest, c *gin.Context) {
 	req.TenantID = domain.TenantID(c.GetString("tenant_id"))
 	req.UserID = domain.UserID(c.GetString("user_id"))
 	req.RequestID = c.GetString("correlation_id")
@@ -455,7 +502,7 @@ func (s *Service) enrichCompletionRequest(req *CompletionRequest, c *gin.Context
 	}
 }
 
-func (s *Service) enrichEmbeddingRequest(req *EmbeddingRequest, c *gin.Context) {
+func (s *Service) enrichEmbeddingRequest(req *domain.EmbeddingRequest, c *gin.Context) {
 	req.TenantID = domain.TenantID(c.GetString("tenant_id"))
 	req.UserID = domain.UserID(c.GetString("user_id"))
 	req.RequestID = c.GetString("correlation_id")
@@ -466,7 +513,7 @@ func (s *Service) enrichEmbeddingRequest(req *EmbeddingRequest, c *gin.Context) 
 	}
 }
 
-func (s *Service) validateCompletionRequest(req *CompletionRequest) error {
+func (s *Service) validateCompletionRequest(req *domain.CompletionRequest) error {
 	if req.Model == "" {
 		return errors.ValidationError("model is required", "model")
 	}
@@ -488,7 +535,7 @@ func (s *Service) validateCompletionRequest(req *CompletionRequest) error {
 	return nil
 }
 
-func (s *Service) validateEmbeddingRequest(req *EmbeddingRequest) error {
+func (s *Service) validateEmbeddingRequest(req *domain.EmbeddingRequest) error {
 	if req.Model == "" {
 		return errors.ValidationError("model is required", "model")
 	}
@@ -502,13 +549,13 @@ func (s *Service) validateEmbeddingRequest(req *EmbeddingRequest) error {
 
 func (s *Service) respondWithError(c *gin.Context, err error) {
 	var qlensErr *errors.QLensError
-	if !errors.Is(err, &qlensErr) {
+	if !goerrors.As(err, &qlensErr) {
 		qlensErr = errors.InternalError("unexpected error", err)
 	}
 	
 	// Log error with context
-	if logger, exists := c.Get("logger"); exists {
-		if log, ok := logger.(logger.Logger); ok {
+	if loggerCtx, exists := c.Get("logger"); exists {
+		if log, ok := loggerCtx.(logger.Logger); ok {
 			log.Error("Request failed", 
 				logger.F("error_type", qlensErr.Type),
 				logger.F("error_code", qlensErr.Code),

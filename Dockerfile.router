@@ -19,13 +19,15 @@ FROM alpine:3.18
 # Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates tzdata
 
-WORKDIR /root/
-
-# Copy binary from builder stage
-COPY --from=builder /app/qlens-router .
-
 # Create non-root user
 RUN adduser -D -s /bin/sh appuser
+
+WORKDIR /app
+
+# Copy binary from builder stage and set permissions
+COPY --from=builder /app/qlens-router .
+RUN chmod +x qlens-router && chown appuser:appuser qlens-router
+
 USER appuser
 
 # Health check

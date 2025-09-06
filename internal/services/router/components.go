@@ -251,7 +251,7 @@ type mockProviderClient struct {
 	logger   logger.Logger
 }
 
-func (m *mockProviderClient) CreateCompletion(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
+func (m *mockProviderClient) CreateCompletion(ctx context.Context, req *domain.CompletionRequest) (*domain.CompletionResponse, error) {
 	m.logger.Info("Mock provider handling completion",
 		logger.F("tenant_id", req.TenantID),
 		logger.F("model", req.Model),
@@ -261,7 +261,7 @@ func (m *mockProviderClient) CreateCompletion(ctx context.Context, req *Completi
 	// Simulate processing time
 	time.Sleep(100 * time.Millisecond)
 
-	return &CompletionResponse{
+	return &domain.CompletionResponse{
 		ID:       "cmpl-" + req.RequestID,
 		Object:   "chat.completion",
 		Created:  time.Now().Unix(),
@@ -292,13 +292,13 @@ func (m *mockProviderClient) CreateCompletion(ctx context.Context, req *Completi
 	}, nil
 }
 
-func (m *mockProviderClient) CreateCompletionStream(ctx context.Context, req *CompletionRequest) (<-chan *StreamResponse, error) {
+func (m *mockProviderClient) CreateCompletionStream(ctx context.Context, req *domain.CompletionRequest) (<-chan *domain.StreamResponse, error) {
 	m.logger.Info("Mock provider handling streaming completion",
 		logger.F("tenant_id", req.TenantID),
 		logger.F("model", req.Model),
 	)
 
-	ch := make(chan *StreamResponse, 5)
+	ch := make(chan *domain.StreamResponse, 5)
 
 	go func() {
 		defer close(ch)
@@ -307,7 +307,7 @@ func (m *mockProviderClient) CreateCompletionStream(ctx context.Context, req *Co
 		
 		for i, word := range words {
 			select {
-			case ch <- &StreamResponse{
+			case ch <- &domain.StreamResponse{
 				ID:       "cmpl-" + req.RequestID,
 				Object:   "chat.completion.chunk",
 				Created:  time.Now().Unix(),
@@ -340,13 +340,13 @@ func (m *mockProviderClient) CreateCompletionStream(ctx context.Context, req *Co
 			time.Sleep(100 * time.Millisecond)
 		}
 
-		ch <- &StreamResponse{Done: true}
+		ch <- &domain.StreamResponse{Done: true}
 	}()
 
 	return ch, nil
 }
 
-func (m *mockProviderClient) CreateEmbeddings(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
+func (m *mockProviderClient) CreateEmbeddings(ctx context.Context, req *domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
 	m.logger.Info("Mock provider handling embedding",
 		logger.F("tenant_id", req.TenantID),
 		logger.F("model", req.Model),
@@ -371,7 +371,7 @@ func (m *mockProviderClient) CreateEmbeddings(ctx context.Context, req *Embeddin
 		}
 	}
 
-	return &EmbeddingResponse{
+	return &domain.EmbeddingResponse{
 		Object:   "list",
 		Data:     data,
 		Model:    req.Model,

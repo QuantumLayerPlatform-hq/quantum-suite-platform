@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -14,9 +15,10 @@ import (
 	"github.com/quantum-suite/platform/internal/domain"
 	"github.com/quantum-suite/platform/internal/providers"
 	"github.com/quantum-suite/platform/pkg/shared/env"
-	"github.com/quantum-suite/platform/pkg/shared/errors"
+	shared_errors "github.com/quantum-suite/platform/pkg/shared/errors"
 	"github.com/quantum-suite/platform/pkg/shared/logger"
 )
+
 
 type Service struct {
 	config            *env.Config
@@ -33,110 +35,20 @@ type Service struct {
 
 // ProviderClient interface for LLM providers
 type ProviderClient interface {
-	CreateCompletion(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error)
-	CreateCompletionStream(ctx context.Context, req *CompletionRequest) (<-chan *StreamResponse, error)
-	CreateEmbeddings(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error)
+	CreateCompletion(ctx context.Context, req *domain.CompletionRequest) (*domain.CompletionResponse, error)
+	CreateCompletionStream(ctx context.Context, req *domain.CompletionRequest) (<-chan *domain.StreamResponse, error)
+	CreateEmbeddings(ctx context.Context, req *domain.EmbeddingRequest) (*domain.EmbeddingResponse, error)
 	ListModels(ctx context.Context) ([]domain.Model, error)
 	HealthCheck(ctx context.Context) error
 }
 
 // Request/Response types (same as gateway service)
-type CompletionRequest struct {
-	TenantID         domain.TenantID            `json:"tenant_id"`
-	UserID           domain.UserID              `json:"user_id"`
-	Provider         domain.Provider            `json:"provider,omitempty"`
-	Model            string                     `json:"model"`
-	Messages         []domain.Message           `json:"messages"`
-	MaxTokens        *int                       `json:"max_tokens,omitempty"`
-	Temperature      *float64                   `json:"temperature,omitempty"`
-	TopP             *float64                   `json:"top_p,omitempty"`
-	Stream           bool                       `json:"stream"`
-	Stop             []string                   `json:"stop,omitempty"`
-	PresencePenalty  *float64                   `json:"presence_penalty,omitempty"`
-	FrequencyPenalty *float64                   `json:"frequency_penalty,omitempty"`
-	User             string                     `json:"user,omitempty"`
-	RequestID        string                     `json:"request_id"`
-	Priority         domain.Priority            `json:"priority"`
-	CacheEnabled     bool                       `json:"cache_enabled"`
-	CacheTTL         time.Duration              `json:"cache_ttl"`
-	Metadata         map[string]interface{}     `json:"metadata,omitempty"`
-}
-
-type CompletionResponse struct {
-	ID       string                  `json:"id"`
-	Object   string                  `json:"object"`
-	Created  int64                   `json:"created"`
-	Model    string                  `json:"model"`
-	Provider domain.Provider         `json:"provider"`
-	Choices  []domain.Choice         `json:"choices"`
-	Usage    domain.Usage            `json:"usage"`
-	Metadata map[string]interface{}  `json:"metadata,omitempty"`
-}
-
-type StreamResponse struct {
-	ID       string                  `json:"id,omitempty"`
-	Object   string                  `json:"object,omitempty"`
-	Created  int64                   `json:"created,omitempty"`
-	Model    string                  `json:"model,omitempty"`
-	Provider domain.Provider         `json:"provider,omitempty"`
-	Choices  []domain.Choice         `json:"choices,omitempty"`
-	Done     bool                    `json:"done,omitempty"`
-	Error    *errors.QLensError      `json:"error,omitempty"`
-}
-
-type EmbeddingRequest struct {
-	TenantID       domain.TenantID  `json:"tenant_id"`
-	UserID         domain.UserID    `json:"user_id"`
-	Provider       domain.Provider  `json:"provider,omitempty"`
-	Model          string           `json:"model"`
-	Input          []string         `json:"input"`
-	EncodingFormat string           `json:"encoding_format,omitempty"`
-	Dimensions     *int             `json:"dimensions,omitempty"`
-	User           string           `json:"user,omitempty"`
-	RequestID      string           `json:"request_id"`
-	Priority       domain.Priority  `json:"priority"`
-}
-
-type EmbeddingResponse struct {
-	Object   string              `json:"object"`
-	Data     []domain.Embedding  `json:"data"`
-	Model    string              `json:"model"`
-	Provider domain.Provider     `json:"provider"`
-	Usage    domain.EmbeddingUsage `json:"usage"`
-}
-
-type ListModelsOptions struct {
-	Provider   domain.Provider   `json:"provider,omitempty"`
-	Capability domain.Capability `json:"capability,omitempty"`
-}
-
-type ModelsResponse struct {
-	Object string         `json:"object"`
-	Data   []domain.Model `json:"data"`
-}
-
-type HealthResponse struct {
-	Status    string                             `json:"status"`
-	Timestamp time.Time                          `json:"timestamp"`
-	Services  map[string]ServiceHealth           `json:"services"`
-	Providers map[string]ProviderHealth          `json:"providers"`
-}
-
-type ServiceHealth struct {
-	Status  string `json:"status"`
-	Latency int64  `json:"latency_ms"`
-}
-
-type ProviderHealth struct {
-	Status    string  `json:"status"`
-	Latency   int64   `json:"latency_ms"`
-	ErrorRate float64 `json:"error_rate"`
-}
+// Use domain types instead of duplicating them here
 
 func NewService(config *env.Config, log logger.Logger) (*Service, error) {
 	service := &Service{
 		config:          config,
-		logger:          log.WithService("router"),
+		logger:          log.WithField("service", "router"),
 		providerClients: make(map[domain.Provider]ProviderClient),
 		providerConfigs: make(map[domain.Provider]*domain.ProviderConfig),
 		modelRegistry:   make(map[string]*domain.Model),
@@ -144,7 +56,7 @@ func NewService(config *env.Config, log logger.Logger) (*Service, error) {
 
 	// Initialize components
 	if err := service.initializeComponents(); err != nil {
-		return nil, errors.InternalError("failed to initialize router components", err)
+		return nil, shared_errors.InternalError("failed to initialize router components", err)
 	}
 
 	// Setup HTTP router
@@ -187,7 +99,12 @@ func (s *Service) initializeProviders() error {
 		// Create provider config
 		config := domain.NewProviderConfig(provider, domain.TenantID("system"))
 		config.Enabled = providerConfig.Enabled
-		config.Config = providerConfig.Config
+		config.Config = map[string]interface{}{
+			"api_key": providerConfig.APIKey,
+			"base_url": providerConfig.BaseURL,
+			"timeout": providerConfig.Timeout,
+			"max_retries": providerConfig.MaxRetries,
+		}
 		s.providerConfigs[provider] = config
 
 		if !providerConfig.Enabled {
@@ -209,7 +126,7 @@ func (s *Service) initializeProviders() error {
 	}
 
 	if len(s.providerClients) == 0 {
-		return errors.InternalError("no providers enabled", nil)
+		return shared_errors.InternalError("no providers enabled", nil)
 	}
 
 	return nil
@@ -219,41 +136,36 @@ func (s *Service) createProviderClient(provider domain.Provider, config env.Prov
 	switch provider {
 	case domain.ProviderAzureOpenAI:
 		azureConfig := providers.AzureOpenAIConfig{
-			Endpoint:    getStringFromConfig(config.Config, "endpoint"),
-			APIKey:      getStringFromConfig(config.Config, "api_key"),
-			APIVersion:  getStringFromConfig(config.Config, "api_version"),
-			Deployments: getMapFromConfig(config.Config, "deployments"),
+			Endpoint:    config.BaseURL,
+			APIKey:      config.APIKey,
+			APIVersion:  "",  // Will use default
+			Deployments: make(map[string]string),  // Empty for now
 		}
-		return providers.NewAzureOpenAIClient(azureConfig, s.logger.WithProvider(string(provider)))
+		return providers.NewAzureOpenAIClient(azureConfig, s.logger.WithField("provider", string(provider)))
 		
 	case domain.ProviderAWSBedrock:
-		models := []providers.BedrockModelConfig{}
-		if modelsConfig, ok := config.Config["models"].([]interface{}); ok {
-			for _, modelConfig := range modelsConfig {
-				if modelMap, ok := modelConfig.(map[string]interface{}); ok {
-					models = append(models, providers.BedrockModelConfig{
-						ID:      getStringFromMap(modelMap, "id"),
-						ModelID: getStringFromMap(modelMap, "model_id"),
-						Name:    getStringFromMap(modelMap, "name"),
-					})
-				}
-			}
+		models := []providers.BedrockModelConfig{
+			{
+				ID:      "claude-3-sonnet",
+				ModelID: "anthropic.claude-3-sonnet-20240229-v1:0",
+				Name:    "Claude 3 Sonnet",
+			},
 		}
 		
 		bedrockConfig := providers.AWSBedrockConfig{
-			Region:          getStringFromConfig(config.Config, "region"),
-			AccessKeyID:     getStringFromConfig(config.Config, "access_key_id"),
-			SecretAccessKey: getStringFromConfig(config.Config, "secret_access_key"),
-			SessionToken:    getStringFromConfig(config.Config, "session_token"),
+			Region:          "us-east-1",  // Default region
+			AccessKeyID:     config.APIKey,  // Using APIKey field
+			SecretAccessKey: "",  // Will be loaded from env
+			SessionToken:    "",
 			Models:          models,
 		}
-		return providers.NewAWSBedrockClient(bedrockConfig, s.logger.WithProvider(string(provider)))
+		return providers.NewAWSBedrockClient(bedrockConfig, s.logger.WithField("provider", string(provider)))
 		
 	default:
 		// For other providers, return mock implementations for now
 		return &mockProviderClient{
 			provider: provider,
-			logger:   s.logger.WithProvider(string(provider)),
+			logger:   s.logger.WithField("provider", string(provider)),
 		}, nil
 	}
 }
@@ -282,7 +194,7 @@ func (s *Service) loadModelRegistry() error {
 }
 
 func (s *Service) setupRouter() {
-	if s.config.Environment == env.EnvironmentProduction {
+	if s.config.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -324,9 +236,9 @@ func (s *Service) Close() error {
 func (s *Service) handleRouteCompletion(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var req CompletionRequest
+	var req domain.CompletionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		s.respondWithError(c, errors.ValidationError("invalid request", "body"))
+		s.respondWithError(c, shared_errors.ValidationError("invalid request", "body"))
 		return
 	}
 
@@ -343,9 +255,9 @@ func (s *Service) handleRouteCompletion(c *gin.Context) {
 func (s *Service) handleRouteCompletionStream(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var req CompletionRequest
+	var req domain.CompletionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		s.respondWithError(c, errors.ValidationError("invalid request", "body"))
+		s.respondWithError(c, shared_errors.ValidationError("invalid request", "body"))
 		return
 	}
 
@@ -363,9 +275,9 @@ func (s *Service) handleRouteCompletionStream(c *gin.Context) {
 func (s *Service) handleRouteEmbedding(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var req EmbeddingRequest
+	var req domain.EmbeddingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		s.respondWithError(c, errors.ValidationError("invalid request", "body"))
+		s.respondWithError(c, shared_errors.ValidationError("invalid request", "body"))
 		return
 	}
 
@@ -380,7 +292,7 @@ func (s *Service) handleRouteEmbedding(c *gin.Context) {
 }
 
 func (s *Service) handleListModels(c *gin.Context) {
-	opts := &ListModelsOptions{}
+	opts := &domain.ListModelsOptions{}
 
 	if provider := c.Query("provider"); provider != "" {
 		opts.Provider = domain.Provider(provider)
@@ -391,7 +303,7 @@ func (s *Service) handleListModels(c *gin.Context) {
 	}
 
 	models := s.listModels(opts)
-	c.JSON(http.StatusOK, &ModelsResponse{
+	c.JSON(http.StatusOK, &domain.ModelsResponse{
 		Object: "list",
 		Data:   models,
 	})
@@ -413,7 +325,7 @@ func (s *Service) handleReadiness(c *gin.Context) {
 	hasHealthyProvider := false
 	
 	s.mu.RLock()
-	for provider, config := range s.providerConfigs {
+	for _, config := range s.providerConfigs {
 		if config.Enabled && config.HealthStatus == domain.ProviderHealthHealthy {
 			hasHealthyProvider = true
 			break
@@ -434,7 +346,7 @@ func (s *Service) handleReadiness(c *gin.Context) {
 
 // Core routing logic
 
-func (s *Service) routeCompletion(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
+func (s *Service) routeCompletion(ctx context.Context, req *domain.CompletionRequest) (*domain.CompletionResponse, error) {
 	// Generate cache key if caching is enabled
 	var cacheKey string
 	if req.CacheEnabled {
@@ -450,19 +362,20 @@ func (s *Service) routeCompletion(ctx context.Context, req *CompletionRequest) (
 
 	// Check circuit breaker
 	if !s.circuitBreaker.CanExecute(provider) {
-		return nil, errors.ProviderUnavailableError(string(provider))
+		return nil, shared_errors.ProviderUnavailableError(string(provider))
 	}
 
 	// Route to provider with retry logic
 	client := s.providerClients[provider]
-	response, err := s.executeWithRetry(ctx, func() (*CompletionResponse, error) {
+	result, err := s.executeWithRetry(ctx, func() (interface{}, error) {
 		return client.CreateCompletion(ctx, req)
 	}, provider)
-
+	
 	if err != nil {
-		s.circuitBreaker.RecordFailure(provider)
 		return nil, err
 	}
+	
+	response := result.(*domain.CompletionResponse)
 
 	s.circuitBreaker.RecordSuccess(provider)
 
@@ -474,7 +387,7 @@ func (s *Service) routeCompletion(ctx context.Context, req *CompletionRequest) (
 	return response, nil
 }
 
-func (s *Service) routeCompletionStream(ctx context.Context, req *CompletionRequest, c *gin.Context) error {
+func (s *Service) routeCompletionStream(ctx context.Context, req *domain.CompletionRequest, c *gin.Context) error {
 	// Select provider
 	provider, err := s.selectProvider(req.Model, req.Provider)
 	if err != nil {
@@ -483,7 +396,7 @@ func (s *Service) routeCompletionStream(ctx context.Context, req *CompletionRequ
 
 	// Check circuit breaker
 	if !s.circuitBreaker.CanExecute(provider) {
-		return errors.ProviderUnavailableError(string(provider))
+		return shared_errors.ProviderUnavailableError(string(provider))
 	}
 
 	// Route to provider
@@ -531,7 +444,7 @@ func (s *Service) routeCompletionStream(ctx context.Context, req *CompletionRequ
 	}
 }
 
-func (s *Service) routeEmbedding(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
+func (s *Service) routeEmbedding(ctx context.Context, req *domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
 	// Select provider
 	provider, err := s.selectProvider(req.Model, req.Provider)
 	if err != nil {
@@ -540,19 +453,20 @@ func (s *Service) routeEmbedding(ctx context.Context, req *EmbeddingRequest) (*E
 
 	// Check circuit breaker
 	if !s.circuitBreaker.CanExecute(provider) {
-		return nil, errors.ProviderUnavailableError(string(provider))
+		return nil, shared_errors.ProviderUnavailableError(string(provider))
 	}
 
 	// Route to provider with retry logic
 	client := s.providerClients[provider]
-	response, err := s.executeWithRetry(ctx, func() (*EmbeddingResponse, error) {
+	result, err := s.executeWithRetry(ctx, func() (interface{}, error) {
 		return client.CreateEmbeddings(ctx, req)
 	}, provider)
-
+	
 	if err != nil {
-		s.circuitBreaker.RecordFailure(provider)
 		return nil, err
 	}
+	
+	response := result.(*domain.EmbeddingResponse)
 
 	s.circuitBreaker.RecordSuccess(provider)
 	return response, nil
@@ -562,7 +476,7 @@ func (s *Service) selectProvider(modelID string, preferredProvider domain.Provid
 	// If provider is specified, validate and use it
 	if preferredProvider != "" {
 		if _, exists := s.providerClients[preferredProvider]; !exists {
-			return "", errors.ValidationError("invalid provider", "provider")
+			return "", shared_errors.ValidationError("invalid provider", "provider")
 		}
 		return preferredProvider, nil
 	}
@@ -584,7 +498,7 @@ func (s *Service) selectProvider(modelID string, preferredProvider domain.Provid
 	s.mu.RUnlock()
 
 	if len(supportedProviders) == 0 {
-		return "", errors.ValidationError("no providers support the specified model", "model")
+		return "", shared_errors.ValidationError("no providers support the specified model", "model")
 	}
 
 	// Use load balancer to select provider
@@ -602,7 +516,7 @@ func (s *Service) providerSupportsModel(provider domain.Provider, modelID string
 	return model.Provider == provider
 }
 
-func (s *Service) listModels(opts *ListModelsOptions) []domain.Model {
+func (s *Service) listModels(opts *domain.ListModelsOptions) []domain.Model {
 	models := []domain.Model{}
 	
 	for _, model := range s.modelRegistry {
@@ -631,12 +545,12 @@ func (s *Service) listModels(opts *ListModelsOptions) []domain.Model {
 	return models
 }
 
-func (s *Service) generateHealthResponse() *HealthResponse {
-	response := &HealthResponse{
+func (s *Service) generateHealthResponse() *domain.HealthResponse {
+	response := &domain.HealthResponse{
 		Status:    "healthy",
 		Timestamp: time.Now(),
-		Services:  make(map[string]ServiceHealth),
-		Providers: make(map[string]ProviderHealth),
+		Services:  make(map[string]domain.ServiceHealth),
+		Providers: make(map[string]domain.ProviderHealth),
 	}
 
 	// Check provider health
@@ -644,7 +558,7 @@ func (s *Service) generateHealthResponse() *HealthResponse {
 	
 	s.mu.RLock()
 	for provider, config := range s.providerConfigs {
-		health := ProviderHealth{
+		health := domain.ProviderHealth{
 			Status:    string(config.HealthStatus),
 			Latency:   int64(config.Latency),
 			ErrorRate: config.ErrorRate,
@@ -668,7 +582,7 @@ func (s *Service) generateHealthResponse() *HealthResponse {
 	return response
 }
 
-func (s *Service) generateCacheKey(tenantID domain.TenantID, req *CompletionRequest) string {
+func (s *Service) generateCacheKey(tenantID domain.TenantID, req *domain.CompletionRequest) string {
 	// Create a hash of the request for caching
 	// FIXED: Include tenant ID to prevent cross-tenant data leakage
 	data := fmt.Sprintf("%s:%s:%v:%v:%v:%s", 
@@ -678,8 +592,8 @@ func (s *Service) generateCacheKey(tenantID domain.TenantID, req *CompletionRequ
 	return hex.EncodeToString(hash[:])
 }
 
-func (s *Service) executeWithRetry[T any](ctx context.Context, fn func() (T, error), provider domain.Provider) (T, error) {
-	var result T
+func (s *Service) executeWithRetry(ctx context.Context, fn func() (interface{}, error), provider domain.Provider) (interface{}, error) {
+	var result interface{}
 	var lastErr error
 
 	maxRetries := 3
@@ -701,7 +615,7 @@ func (s *Service) executeWithRetry[T any](ctx context.Context, fn func() (T, err
 		}
 
 		// Check if error is retryable
-		if qlensErr, ok := lastErr.(*errors.QLensError); ok && !qlensErr.Retryable {
+		if qlensErr, ok := lastErr.(*shared_errors.QLensError); ok && !qlensErr.Retryable {
 			break
 		}
 
@@ -715,9 +629,9 @@ func (s *Service) executeWithRetry[T any](ctx context.Context, fn func() (T, err
 }
 
 func (s *Service) respondWithError(c *gin.Context, err error) {
-	var qlensErr *errors.QLensError
-	if !errors.Is(err, &qlensErr) {
-		qlensErr = errors.InternalError("unexpected error", err)
+	var qlensErr *shared_errors.QLensError
+	if !errors.As(err, &qlensErr) {
+		qlensErr = shared_errors.InternalError("unexpected error", err)
 	}
 
 	status := qlensErr.HTTPStatusCode()
