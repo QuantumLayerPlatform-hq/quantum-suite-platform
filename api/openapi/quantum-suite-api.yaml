@@ -1,0 +1,1696 @@
+openapi: 3.0.3
+info:
+  title: Quantum Suite API
+  description: |
+    Comprehensive DevSecOps platform API providing AI-powered code generation, testing, security, infrastructure management, and site reliability engineering capabilities.
+    
+    ## Features
+    - 🤖 **QAgent**: AI-powered code generation with self-criticism
+    - 🧪 **QTest**: Intelligent test generation and coverage analysis  
+    - 🔒 **QSecure**: Automated security scanning and remediation
+    - 📊 **QSRE**: Site reliability engineering with anomaly detection
+    - ☁️ **QInfra**: Multi-cloud infrastructure orchestration
+    
+    ## Authentication
+    All API endpoints require authentication via API key in the Authorization header:
+    ```
+    Authorization: Bearer <your-api-key>
+    ```
+  version: "1.0.0"
+  contact:
+    name: Quantum Suite Support
+    url: https://quantum-suite.io/support
+    email: support@quantum-suite.io
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.quantum-suite.io/v1
+    description: Production server
+  - url: https://staging-api.quantum-suite.io/v1
+    description: Staging server
+  - url: http://localhost:8080/v1
+    description: Development server
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  # =============================================================================
+  # QAGENT - CODE GENERATION ENDPOINTS
+  # =============================================================================
+  
+  /agent/generate:
+    post:
+      tags:
+        - QAgent
+      summary: Generate code from natural language
+      description: |
+        Generate code from natural language description using AI agents with context awareness and self-criticism.
+        
+        The system will:
+        1. Parse the natural language intent
+        2. Search for similar code patterns
+        3. Generate code using optimal LLM model
+        4. Validate syntax and semantics
+        5. Apply self-criticism if needed
+        6. Return validated code with explanations
+      operationId: generateCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeGenerationRequest'
+            examples:
+              simple_function:
+                summary: Simple function generation
+                value:
+                  prompt: "Create a function to validate email addresses"
+                  language: "python"
+                  context:
+                    project_id: "proj_123"
+                    workspace_id: "ws_456"
+              rest_api:
+                summary: REST API endpoint
+                value:
+                  prompt: "Create a REST API endpoint for user management with CRUD operations"
+                  language: "go"
+                  framework: "gin"
+                  context:
+                    project_id: "proj_123"
+                    requirements:
+                      - "Include input validation"
+                      - "Add error handling"
+                      - "Include OpenAPI documentation"
+      responses:
+        '200':
+          description: Code generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeGenerationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /agent/improve:
+    post:
+      tags:
+        - QAgent
+      summary: Improve existing code
+      description: |
+        Improve existing code based on feedback, performance requirements, or best practices.
+      operationId: improveCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeImprovementRequest'
+      responses:
+        '200':
+          description: Code improved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeGenerationResponse'
+
+  /agent/{agentId}/status:
+    get:
+      tags:
+        - QAgent
+      summary: Get agent status
+      description: Get the current status and performance metrics of a specific agent
+      operationId: getAgentStatus
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Agent status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentStatus'
+
+  # =============================================================================
+  # QTEST - TESTING ENDPOINTS
+  # =============================================================================
+  
+  /test/generate:
+    post:
+      tags:
+        - QTest
+      summary: Generate tests for code
+      description: |
+        Generate comprehensive test suites for given code including unit tests, integration tests,
+        and performance tests with intelligent coverage optimization.
+      operationId: generateTests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestGenerationRequest'
+            examples:
+              unit_tests:
+                summary: Unit test generation
+                value:
+                  code: |
+                    def calculate_fibonacci(n):
+                        if n <= 1:
+                            return n
+                        return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)
+                  language: "python"
+                  test_types: ["unit"]
+                  coverage_target: 95
+      responses:
+        '200':
+          description: Tests generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestGenerationResponse'
+
+  /test/coverage:
+    post:
+      tags:
+        - QTest
+      summary: Analyze test coverage
+      description: Analyze code coverage for existing test suites and provide recommendations
+      operationId: analyzeCoverage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoverageAnalysisRequest'
+      responses:
+        '200':
+          description: Coverage analysis completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageAnalysisResponse'
+
+  /test/execute:
+    post:
+      tags:
+        - QTest
+      summary: Execute test suite
+      description: Execute a test suite and return detailed results with performance metrics
+      operationId: executeTests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestExecutionRequest'
+      responses:
+        '200':
+          description: Test execution started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestExecutionResponse'
+        '202':
+          description: Test execution queued for async processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+
+  # =============================================================================
+  # QSECURE - SECURITY ENDPOINTS
+  # =============================================================================
+  
+  /security/scan:
+    post:
+      tags:
+        - QSecure
+      summary: Scan code for security vulnerabilities
+      description: |
+        Perform comprehensive security scanning including SAST, DAST, dependency scanning,
+        and container security analysis.
+      operationId: scanSecurity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityScanRequest'
+      responses:
+        '202':
+          description: Security scan initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+
+  /security/vulnerabilities:
+    get:
+      tags:
+        - QSecure
+      summary: List vulnerabilities
+      description: Get list of detected vulnerabilities with filtering and pagination
+      operationId: listVulnerabilities
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [critical, high, medium, low]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, fixed, false_positive, accepted_risk]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Vulnerabilities retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VulnerabilityList'
+
+  /security/remediate:
+    post:
+      tags:
+        - QSecure
+      summary: Auto-remediate vulnerabilities
+      description: Automatically remediate detected vulnerabilities where possible
+      operationId: remediateVulnerabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemediationRequest'
+      responses:
+        '202':
+          description: Remediation process started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+
+  # =============================================================================
+  # QSRE - SITE RELIABILITY ENDPOINTS
+  # =============================================================================
+  
+  /sre/monitor:
+    post:
+      tags:
+        - QSRE
+      summary: Setup monitoring for service
+      description: Configure monitoring, alerting, and SLOs for a service
+      operationId: setupMonitoring
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonitoringSetupRequest'
+      responses:
+        '200':
+          description: Monitoring configured successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitoringSetupResponse'
+
+  /sre/incidents:
+    get:
+      tags:
+        - QSRE
+      summary: List incidents
+      description: Get list of incidents with filtering and search capabilities
+      operationId: listIncidents
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, investigating, resolved, closed]
+        - name: severity
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [critical, high, medium, low]
+        - name: service
+          in: query
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Incidents retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentList'
+
+  /sre/chaos:
+    post:
+      tags:
+        - QSRE
+      summary: Run chaos experiment
+      description: Execute chaos engineering experiments to test system resilience
+      operationId: runChaosExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChaosExperimentRequest'
+      responses:
+        '202':
+          description: Chaos experiment started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+
+  # =============================================================================
+  # QINFRA - INFRASTRUCTURE ENDPOINTS
+  # =============================================================================
+  
+  /infra/provision:
+    post:
+      tags:
+        - QInfra
+      summary: Provision infrastructure
+      description: |
+        Provision cloud infrastructure using Infrastructure as Code with compliance
+        and security best practices automatically applied.
+      operationId: provisionInfrastructure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InfraProvisionRequest'
+            examples:
+              web_application:
+                summary: Web application infrastructure
+                value:
+                  provider: "aws"
+                  region: "us-west-2"
+                  environment: "production"
+                  resources:
+                    - type: "compute"
+                      spec:
+                        instance_type: "t3.medium"
+                        auto_scaling: true
+                        min_instances: 2
+                        max_instances: 10
+                    - type: "database"
+                      spec:
+                        engine: "postgresql"
+                        version: "15"
+                        instance_class: "db.t3.micro"
+                    - type: "load_balancer"
+                      spec:
+                        type: "application"
+                        https_enabled: true
+      responses:
+        '202':
+          description: Infrastructure provisioning started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+
+  /infra/golden-images:
+    get:
+      tags:
+        - QInfra
+      summary: List golden images
+      description: Get list of available golden images with security and compliance information
+      operationId: listGoldenImages
+      parameters:
+        - name: os_family
+          in: query
+          schema:
+            type: string
+            enum: [ubuntu, centos, amazonlinux, windows]
+        - name: include_deprecated
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Golden images retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoldenImageList'
+
+    post:
+      tags:
+        - QInfra
+      summary: Create golden image
+      description: Create a new golden image with security hardening and compliance
+      operationId: createGoldenImage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoldenImageRequest'
+      responses:
+        '202':
+          description: Golden image creation started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+
+  /infra/compliance:
+    get:
+      tags:
+        - QInfra
+      summary: Get compliance status
+      description: Get compliance status across all infrastructure resources
+      operationId: getComplianceStatus
+      parameters:
+        - name: framework
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [soc2, iso27001, hipaa, pci_dss]
+      responses:
+        '200':
+          description: Compliance status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceStatus'
+
+  # =============================================================================
+  # SHARED ENDPOINTS
+  # =============================================================================
+  
+  /projects:
+    get:
+      tags:
+        - Projects
+      summary: List projects
+      description: Get list of projects for the current tenant
+      operationId: listProjects
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectList'
+
+    post:
+      tags:
+        - Projects
+      summary: Create project
+      description: Create a new project
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /projects/{projectId}/workspaces:
+    get:
+      tags:
+        - Workspaces
+      summary: List workspaces
+      description: Get list of workspaces for a project
+      operationId: listWorkspaces
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workspaces retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceList'
+
+  /jobs/{jobId}:
+    get:
+      tags:
+        - Jobs
+      summary: Get job status
+      description: Get status and progress of an asynchronous job
+      operationId: getJobStatus
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: API key authentication using Bearer token
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Unauthorized:
+      description: Unauthorized - invalid or missing authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    TooManyRequests:
+      description: Too many requests - rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Number of seconds to wait before retrying
+    
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    # =============================================================================
+    # COMMON SCHEMAS
+    # =============================================================================
+    
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code for programmatic handling
+          example: "INVALID_INPUT"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "The provided input is invalid"
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details
+        request_id:
+          type: string
+          format: uuid
+          description: Unique request identifier for support
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+    AsyncOperationResponse:
+      type: object
+      required:
+        - job_id
+        - status
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: Unique job identifier for tracking
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+          description: Current job status
+        estimated_completion:
+          type: string
+          format: date-time
+          description: Estimated completion time
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Progress percentage
+
+    JobStatus:
+      type: object
+      required:
+        - job_id
+        - status
+        - created_at
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed, cancelled]
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        result:
+          type: object
+          additionalProperties: true
+          description: Job result when completed
+        error:
+          type: string
+          description: Error message if failed
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    # =============================================================================
+    # QAGENT SCHEMAS
+    # =============================================================================
+    
+    CodeGenerationRequest:
+      type: object
+      required:
+        - prompt
+        - language
+      properties:
+        prompt:
+          type: string
+          description: Natural language description of desired code
+          example: "Create a function to validate email addresses with regex"
+        language:
+          type: string
+          enum: [python, javascript, typescript, go, java, rust, cpp, csharp]
+          description: Target programming language
+        framework:
+          type: string
+          description: Optional framework/library to use
+          example: "fastapi"
+        context:
+          type: object
+          properties:
+            project_id:
+              type: string
+              format: uuid
+            workspace_id:
+              type: string
+              format: uuid
+            existing_code:
+              type: string
+              description: Related existing code for context
+            requirements:
+              type: array
+              items:
+                type: string
+              description: Additional requirements
+            constraints:
+              type: array
+              items:
+                type: string
+              description: Constraints or limitations
+        preferences:
+          type: object
+          properties:
+            style:
+              type: string
+              enum: [minimal, verbose, functional, object_oriented]
+            include_tests:
+              type: boolean
+              default: false
+            include_docs:
+              type: boolean
+              default: true
+            performance_focus:
+              type: boolean
+              default: false
+
+    CodeGenerationResponse:
+      type: object
+      required:
+        - generation_id
+        - code
+        - language
+      properties:
+        generation_id:
+          type: string
+          format: uuid
+          description: Unique identifier for this generation
+        code:
+          type: string
+          description: Generated code
+        language:
+          type: string
+          description: Programming language used
+        explanation:
+          type: string
+          description: Explanation of the generated code
+        suggestions:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [improvement, optimization, security, style]
+              message:
+                type: string
+              code_snippet:
+                type: string
+        validation:
+          type: object
+          properties:
+            syntax_valid:
+              type: boolean
+            semantic_valid:
+              type: boolean
+            security_issues:
+              type: array
+              items:
+                type: object
+                properties:
+                  severity:
+                    type: string
+                    enum: [low, medium, high, critical]
+                  message:
+                    type: string
+                  line:
+                    type: integer
+            quality_score:
+              type: number
+              minimum: 0
+              maximum: 100
+        metrics:
+          type: object
+          properties:
+            tokens_used:
+              type: integer
+            processing_time_ms:
+              type: integer
+            cost_usd:
+              type: number
+            model_used:
+              type: string
+
+    CodeImprovementRequest:
+      type: object
+      required:
+        - code
+        - improvement_type
+      properties:
+        code:
+          type: string
+          description: Existing code to improve
+        improvement_type:
+          type: array
+          items:
+            type: string
+            enum: [performance, security, readability, maintainability, tests]
+        feedback:
+          type: string
+          description: Specific feedback or requirements
+        target_language:
+          type: string
+          description: Target language if different from original
+
+    AgentStatus:
+      type: object
+      required:
+        - agent_id
+        - status
+        - performance
+      properties:
+        agent_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [code_generator, code_reviewer, refactor_agent]
+        status:
+          type: string
+          enum: [idle, busy, training, error, offline]
+        capabilities:
+          type: array
+          items:
+            type: string
+        performance:
+          type: object
+          properties:
+            success_rate:
+              type: number
+              minimum: 0
+              maximum: 100
+            average_response_time:
+              type: integer
+            requests_processed:
+              type: integer
+            user_satisfaction:
+              type: number
+              minimum: 0
+              maximum: 5
+
+    # =============================================================================
+    # QTEST SCHEMAS
+    # =============================================================================
+    
+    TestGenerationRequest:
+      type: object
+      required:
+        - code
+        - language
+      properties:
+        code:
+          type: string
+          description: Source code to generate tests for
+        language:
+          type: string
+          enum: [python, javascript, typescript, go, java, rust]
+        test_types:
+          type: array
+          items:
+            type: string
+            enum: [unit, integration, e2e, performance, security]
+          default: ["unit"]
+        coverage_target:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 80
+          description: Target code coverage percentage
+        test_framework:
+          type: string
+          description: Preferred testing framework
+          example: "pytest"
+        additional_requirements:
+          type: array
+          items:
+            type: string
+
+    TestGenerationResponse:
+      type: object
+      required:
+        - suite_id
+        - tests
+      properties:
+        suite_id:
+          type: string
+          format: uuid
+        tests:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+                enum: [unit, integration, e2e, performance]
+              code:
+                type: string
+              description:
+                type: string
+              estimated_coverage:
+                type: number
+        estimated_coverage:
+          type: number
+          minimum: 0
+          maximum: 100
+        execution_time_estimate:
+          type: integer
+          description: Estimated execution time in seconds
+
+    CoverageAnalysisRequest:
+      type: object
+      required:
+        - project_path
+      properties:
+        project_path:
+          type: string
+          description: Path to project for analysis
+        test_paths:
+          type: array
+          items:
+            type: string
+          description: Paths to test files/directories
+        exclude_patterns:
+          type: array
+          items:
+            type: string
+
+    CoverageAnalysisResponse:
+      type: object
+      properties:
+        overall_coverage:
+          type: number
+          minimum: 0
+          maximum: 100
+        line_coverage:
+          type: number
+        branch_coverage:
+          type: number
+        function_coverage:
+          type: number
+        uncovered_lines:
+          type: array
+          items:
+            type: object
+            properties:
+              file:
+                type: string
+              line:
+                type: integer
+              reason:
+                type: string
+        recommendations:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [missing_test, edge_case, error_handling]
+              message:
+                type: string
+              priority:
+                type: string
+                enum: [low, medium, high, critical]
+
+    TestExecutionRequest:
+      type: object
+      required:
+        - suite_id
+      properties:
+        suite_id:
+          type: string
+          format: uuid
+        test_filter:
+          type: string
+          description: Pattern to filter specific tests
+        parallel_execution:
+          type: boolean
+          default: true
+        timeout_seconds:
+          type: integer
+          default: 3600
+
+    TestExecutionResponse:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [running, completed, failed]
+        results:
+          type: object
+          properties:
+            total_tests:
+              type: integer
+            passed:
+              type: integer
+            failed:
+              type: integer
+            skipped:
+              type: integer
+            execution_time:
+              type: integer
+            failures:
+              type: array
+              items:
+                type: object
+                properties:
+                  test_name:
+                    type: string
+                  error:
+                    type: string
+                  traceback:
+                    type: string
+
+    # =============================================================================
+    # QSECURE SCHEMAS
+    # =============================================================================
+    
+    SecurityScanRequest:
+      type: object
+      required:
+        - target
+        - scan_type
+      properties:
+        target:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [code_repository, container_image, web_application, infrastructure]
+            location:
+              type: string
+              description: Repository URL, image name, or application URL
+        scan_type:
+          type: array
+          items:
+            type: string
+            enum: [sast, dast, sca, container, infrastructure, secrets]
+        configuration:
+          type: object
+          properties:
+            severity_threshold:
+              type: string
+              enum: [low, medium, high, critical]
+              default: "medium"
+            include_license_check:
+              type: boolean
+              default: true
+            custom_rules:
+              type: array
+              items:
+                type: string
+
+    VulnerabilityList:
+      type: object
+      properties:
+        total:
+          type: integer
+        vulnerabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vulnerability'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Vulnerability:
+      type: object
+      required:
+        - id
+        - title
+        - severity
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        status:
+          type: string
+          enum: [open, fixed, false_positive, accepted_risk]
+        cwe_id:
+          type: string
+          description: Common Weakness Enumeration ID
+        cvss_score:
+          type: number
+          minimum: 0
+          maximum: 10
+        location:
+          type: object
+          properties:
+            file:
+              type: string
+            line:
+              type: integer
+            column:
+              type: integer
+            function:
+              type: string
+        remediation:
+          type: object
+          properties:
+            suggestion:
+              type: string
+            automated_fix_available:
+              type: boolean
+            effort_estimate:
+              type: string
+              enum: [low, medium, high]
+        discovered_at:
+          type: string
+          format: date-time
+
+    RemediationRequest:
+      type: object
+      required:
+        - vulnerability_ids
+      properties:
+        vulnerability_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        auto_apply_fixes:
+          type: boolean
+          default: false
+          description: Whether to automatically apply suggested fixes
+
+    # =============================================================================
+    # QSRE SCHEMAS
+    # =============================================================================
+    
+    MonitoringSetupRequest:
+      type: object
+      required:
+        - service_name
+        - endpoints
+      properties:
+        service_name:
+          type: string
+        endpoints:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              method:
+                type: string
+                enum: [GET, POST, PUT, DELETE, PATCH]
+              expected_status:
+                type: integer
+                default: 200
+        slos:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              metric:
+                type: string
+                enum: [availability, latency, error_rate, throughput]
+              target:
+                type: number
+              threshold:
+                type: number
+        alert_channels:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [email, slack, webhook, pagerduty]
+              configuration:
+                type: object
+                additionalProperties: true
+
+    MonitoringSetupResponse:
+      type: object
+      properties:
+        monitoring_id:
+          type: string
+          format: uuid
+        dashboards:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              url:
+                type: string
+        alerts:
+          type: array
+          items:
+            type: object
+            properties:
+              rule_name:
+                type: string
+              condition:
+                type: string
+              channels:
+                type: array
+                items:
+                  type: string
+
+    IncidentList:
+      type: object
+      properties:
+        total:
+          type: integer
+        incidents:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              title:
+                type: string
+              status:
+                type: string
+                enum: [open, investigating, resolved, closed]
+              severity:
+                type: string
+                enum: [critical, high, medium, low]
+              service:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+              resolved_at:
+                type: string
+                format: date-time
+              duration_minutes:
+                type: integer
+
+    ChaosExperimentRequest:
+      type: object
+      required:
+        - experiment_type
+        - target
+      properties:
+        experiment_type:
+          type: string
+          enum: [pod_kill, network_delay, cpu_stress, memory_stress, disk_fill]
+        target:
+          type: object
+          properties:
+            service:
+              type: string
+            namespace:
+              type: string
+            selector:
+              type: object
+              additionalProperties: true
+        duration:
+          type: integer
+          default: 300
+          description: Experiment duration in seconds
+        parameters:
+          type: object
+          additionalProperties: true
+          description: Experiment-specific parameters
+
+    # =============================================================================
+    # QINFRA SCHEMAS
+    # =============================================================================
+    
+    InfraProvisionRequest:
+      type: object
+      required:
+        - provider
+        - region
+        - resources
+      properties:
+        provider:
+          type: string
+          enum: [aws, azure, gcp, multicloud]
+        region:
+          type: string
+          example: "us-west-2"
+        environment:
+          type: string
+          enum: [development, staging, production]
+          default: "development"
+        resources:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [compute, database, storage, network, load_balancer]
+              name:
+                type: string
+              spec:
+                type: object
+                additionalProperties: true
+        compliance_requirements:
+          type: array
+          items:
+            type: string
+            enum: [soc2, hipaa, pci_dss, gdpr]
+        backup_strategy:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            retention_days:
+              type: integer
+            frequency:
+              type: string
+              enum: [daily, weekly, monthly]
+        disaster_recovery:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            rpo_minutes:
+              type: integer
+            rto_minutes:
+              type: integer
+
+    GoldenImageList:
+      type: object
+      properties:
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              version:
+                type: string
+              os_family:
+                type: string
+              base_os:
+                type: string
+              size_gb:
+                type: number
+              created_at:
+                type: string
+                format: date-time
+              security_scan:
+                type: object
+                properties:
+                  last_scanned:
+                    type: string
+                    format: date-time
+                  vulnerabilities:
+                    type: object
+                    properties:
+                      critical:
+                        type: integer
+                      high:
+                        type: integer
+                      medium:
+                        type: integer
+                      low:
+                        type: integer
+              compliance:
+                type: array
+                items:
+                  type: string
+
+    GoldenImageRequest:
+      type: object
+      required:
+        - name
+        - base_os
+      properties:
+        name:
+          type: string
+        base_os:
+          type: string
+          enum: [ubuntu-20.04, ubuntu-22.04, centos-7, centos-8, amazonlinux-2]
+        packages:
+          type: array
+          items:
+            type: string
+        configurations:
+          type: object
+          additionalProperties: true
+        security_hardening:
+          type: boolean
+          default: true
+        compliance_profiles:
+          type: array
+          items:
+            type: string
+            enum: [cis, stig, pci_dss]
+
+    ComplianceStatus:
+      type: object
+      properties:
+        overall_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        frameworks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              score:
+                type: number
+              controls:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  compliant:
+                    type: integer
+                  non_compliant:
+                    type: integer
+                  not_applicable:
+                    type: integer
+        violations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              severity:
+                type: string
+                enum: [critical, high, medium, low]
+              resource:
+                type: string
+              rule:
+                type: string
+              description:
+                type: string
+
+    # =============================================================================
+    # PROJECT & WORKSPACE SCHEMAS
+    # =============================================================================
+    
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [web_application, mobile_app, api, microservice, library]
+        status:
+          type: string
+          enum: [active, archived, deleted]
+        settings:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ProjectList:
+      type: object
+      properties:
+        total:
+          type: integer
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        type:
+          type: string
+          enum: [web_application, mobile_app, api, microservice, library]
+        settings:
+          type: object
+          additionalProperties: true
+
+    WorkspaceList:
+      type: object
+      properties:
+        total:
+          type: integer
+        workspaces:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              type:
+                type: string
+              status:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
+        has_more:
+          type: boolean
+
+# =============================================================================
+# TAGS
+# =============================================================================
+
+tags:
+  - name: QAgent
+    description: AI-powered code generation and improvement
+  - name: QTest
+    description: Intelligent test generation and coverage analysis
+  - name: QSecure
+    description: Security scanning and vulnerability management
+  - name: QSRE
+    description: Site reliability engineering and monitoring
+  - name: QInfra
+    description: Infrastructure orchestration and management
+  - name: Projects
+    description: Project management operations
+  - name: Workspaces
+    description: Workspace management operations
+  - name: Jobs
+    description: Asynchronous job tracking

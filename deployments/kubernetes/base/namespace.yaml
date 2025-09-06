@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quantum-suite
+  labels:
+    name: quantum-suite
+    app.kubernetes.io/name: quantum-suite
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: platform
+    app.kubernetes.io/part-of: quantum-suite
+    app.kubernetes.io/managed-by: helm
+    # Enable Istio sidecar injection
+    istio-injection: enabled
+  annotations:
+    description: "Quantum Suite DevSecOps Platform"
+    contact: "platform-team@quantum-suite.io"
+    
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: quantum-suite-quota
+  namespace: quantum-suite
+spec:
+  hard:
+    # Compute Resources
+    requests.cpu: "50"
+    requests.memory: 100Gi
+    limits.cpu: "100"
+    limits.memory: 200Gi
+    
+    # Storage
+    requests.storage: 500Gi
+    persistentvolumeclaims: "50"
+    
+    # Network
+    services: "50"
+    services.loadbalancers: "10"
+    services.nodeports: "10"
+    
+    # Objects
+    pods: "100"
+    replicationcontrollers: "50"
+    secrets: "50"
+    configmaps: "50"
+    
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: quantum-suite-limits
+  namespace: quantum-suite
+spec:
+  limits:
+  - type: "Container"
+    default:
+      cpu: "500m"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "256Mi"
+    max:
+      cpu: "4"
+      memory: "8Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+  - type: "PersistentVolumeClaim"
+    max:
+      storage: "100Gi"
+    min:
+      storage: "1Gi"
+  - type: "Pod"
+    max:
+      cpu: "8"
+      memory: "16Gi"
+      
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: quantum-suite-network-policy
+  namespace: quantum-suite
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: quantum-suite
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  egress:
+  - {} # Allow all egress for now - will be refined per service

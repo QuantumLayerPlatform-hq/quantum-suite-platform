@@ -1,0 +1,431 @@
+# Quantum Suite Development Environment
+# This docker-compose file sets up the complete development environment
+
+version: '3.9'
+
+services:
+  # =============================================================================
+  # DATABASES
+  # =============================================================================
+  
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: quantum-postgres
+    environment:
+      POSTGRES_DB: quantum_dev
+      POSTGRES_USER: quantum_user
+      POSTGRES_PASSWORD: quantum_pass
+      POSTGRES_MULTIPLE_EXTENSIONS: pgvector,uuid-ossp,btree_gin,btree_gist
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../migrations:/docker-entrypoint-initdb.d
+    networks:
+      - quantum-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quantum_user -d quantum_dev"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: quantum-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - quantum-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # VECTOR DATABASES
+  # =============================================================================
+  
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: quantum-qdrant
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC API
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__STORAGE__STORAGE_PATH: /qdrant/storage
+      QDRANT__STORAGE__WAL__WAL_CAPACITY_MB: 1000
+      QDRANT__STORAGE__OPTIMIZERS__MEMMAP_THRESHOLD_KB: 100000
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - quantum-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  weaviate:
+    image: semitechnologies/weaviate:latest
+    container_name: quantum-weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 100
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      ENABLE_MODULES: 'text2vec-openai,text2vec-cohere,text2vec-huggingface'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
+      CLUSTER_HOSTNAME: 'weaviate'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    networks:
+      - quantum-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # MESSAGE QUEUE & EVENT STORE
+  # =============================================================================
+  
+  nats:
+    image: nats:latest
+    container_name: quantum-nats
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP monitoring
+    command: >
+      --jetstream
+      --store_dir /data
+      --max_memory_store 1GB
+      --max_file_store 10GB
+      --http_port 8222
+      --log_file /var/log/nats.log
+    volumes:
+      - nats_data:/data
+      - nats_logs:/var/log
+    networks:
+      - quantum-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # OBSERVABILITY STACK
+  # =============================================================================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: quantum-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - quantum-network
+    depends_on:
+      - node-exporter
+      - cadvisor
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: quantum-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: quantum123
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-worldmap-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - quantum-network
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: quantum-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector HTTP
+      - "14250:14250"  # Jaeger collector gRPC
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    volumes:
+      - jaeger_data:/tmp
+    networks:
+      - quantum-network
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: quantum-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - quantum-network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: quantum-cadvisor
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    networks:
+      - quantum-network
+
+  # =============================================================================
+  # DEVELOPMENT TOOLS
+  # =============================================================================
+  
+  # Local MinIO for S3-compatible object storage
+  minio:
+    image: minio/minio:latest
+    container_name: quantum-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: quantum
+      MINIO_ROOT_PASSWORD: quantum123
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - quantum-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Mailhog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: quantum-mailhog
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    networks:
+      - quantum-network
+
+  # =============================================================================
+  # API GATEWAY (Development)
+  # =============================================================================
+  
+  kong:
+    image: kong:3.4
+    container_name: quantum-kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_ADMIN_GUI_URL: http://localhost:8002
+    ports:
+      - "8000:8000"  # Proxy HTTP
+      - "8443:8443"  # Proxy HTTPS
+      - "8001:8001"  # Admin API HTTP
+      - "8444:8444"  # Admin API HTTPS
+      - "8002:8002"  # Manager HTTP
+    volumes:
+      - ./kong.yml:/kong/kong.yml
+    networks:
+      - quantum-network
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # SHARED SERVICES (Development Mode)
+  # =============================================================================
+  
+  llm-gateway:
+    build:
+      context: ../../
+      dockerfile: ./deployments/docker/Dockerfile.llm-gateway
+    container_name: quantum-llm-gateway
+    ports:
+      - "8100:8080"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=debug
+      - POSTGRES_URL=postgres://quantum_user:quantum_pass@postgres:5432/quantum_dev
+      - REDIS_URL=redis://redis:6379/0
+      - NATS_URL=nats://nats:4222
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ../../configs:/app/configs
+    networks:
+      - quantum-network
+    depends_on:
+      - postgres
+      - redis
+      - nats
+    restart: unless-stopped
+
+  vector-service:
+    build:
+      context: ../../
+      dockerfile: ./deployments/docker/Dockerfile.vector-service
+    container_name: quantum-vector-service
+    ports:
+      - "8101:8080"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=debug
+      - QDRANT_URL=http://qdrant:6333
+      - WEAVIATE_URL=http://weaviate:8080
+      - POSTGRES_URL=postgres://quantum_user:quantum_pass@postgres:5432/quantum_dev
+    networks:
+      - quantum-network
+    depends_on:
+      - qdrant
+      - weaviate
+      - postgres
+    restart: unless-stopped
+
+  mcp-hub:
+    build:
+      context: ../../
+      dockerfile: ./deployments/docker/Dockerfile.mcp-hub
+    container_name: quantum-mcp-hub
+    ports:
+      - "8102:8080"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=debug
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis://redis:6379/1
+    networks:
+      - quantum-network
+    depends_on:
+      - nats
+      - redis
+    restart: unless-stopped
+
+  # =============================================================================
+  # APPLICATION MODULES (Development Mode)
+  # =============================================================================
+  
+  qagent:
+    build:
+      context: ../../
+      dockerfile: ./deployments/docker/Dockerfile.qagent
+    container_name: quantum-qagent
+    ports:
+      - "8110:8080"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=debug
+      - POSTGRES_URL=postgres://quantum_user:quantum_pass@postgres:5432/quantum_dev
+      - REDIS_URL=redis://redis:6379/2
+      - NATS_URL=nats://nats:4222
+      - LLM_GATEWAY_URL=http://llm-gateway:8080
+      - VECTOR_SERVICE_URL=http://vector-service:8080
+      - MCP_HUB_URL=http://mcp-hub:8080
+    volumes:
+      - ../../configs:/app/configs
+    networks:
+      - quantum-network
+    depends_on:
+      - postgres
+      - redis
+      - nats
+      - llm-gateway
+      - vector-service
+      - mcp-hub
+    restart: unless-stopped
+
+# =============================================================================
+# NETWORKS AND VOLUMES
+# =============================================================================
+
+networks:
+  quantum-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  weaviate_data:
+    driver: local
+  nats_data:
+    driver: local
+  nats_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  jaeger_data:
+    driver: local
+  minio_data:
+    driver: local
+
+# =============================================================================
+# DEVELOPMENT CONFIGURATION FILES
+# =============================================================================
+
+# To use this docker-compose file:
+# 1. Copy .env.example to .env and fill in your API keys
+# 2. Run: docker-compose -f deployments/docker/docker-compose.dev.yml up -d
+# 3. Access services:
+#    - API Gateway: http://localhost:8000
+#    - Grafana: http://localhost:3000 (admin/quantum123)
+#    - Jaeger: http://localhost:16686
+#    - MinIO: http://localhost:9001 (quantum/quantum123)
+#    - Mailhog: http://localhost:8025
+#    - Prometheus: http://localhost:9090
+#    - Kong Admin: http://localhost:8001
