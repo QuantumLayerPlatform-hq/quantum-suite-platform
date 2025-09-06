@@ -1,0 +1,392 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quantum-config
+  namespace: quantum-system
+  labels:
+    app: quantum-suite
+    component: config
+data:
+  # Database configuration
+  POSTGRES_HOST: "postgresql.quantum-data.svc.cluster.local"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DATABASE: "quantum"
+  POSTGRES_SSL_MODE: "require"
+  
+  # Redis configuration
+  REDIS_HOST: "redis.quantum-data.svc.cluster.local"
+  REDIS_PORT: "6379"
+  
+  # NATS configuration
+  NATS_URL: "nats://nats.quantum-system.svc.cluster.local:4222"
+  
+  # Vector databases
+  QDRANT_URL: "http://qdrant.quantum-data.svc.cluster.local:6333"
+  WEAVIATE_URL: "http://weaviate.quantum-data.svc.cluster.local:8080"
+  
+  # Service mesh
+  SERVICE_MESH_ENABLED: "true"
+  
+  # Logging
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  
+  # Tracing
+  JAEGER_ENDPOINT: "http://jaeger-collector.quantum-monitoring.svc.cluster.local:14268/api/traces"
+  
+  # Metrics
+  PROMETHEUS_ENDPOINT: "http://prometheus.quantum-monitoring.svc.cluster.local:9090"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: quantum-secrets
+  namespace: quantum-system
+  labels:
+    app: quantum-suite
+    component: secrets
+type: Opaque
+data:
+  # Database credentials (base64 encoded)
+  POSTGRES_USER: cXVhbnR1bQ==  # quantum
+  POSTGRES_PASSWORD: cXVhbnR1bS1zZWN1cmU=  # quantum-secure
+  
+  # Redis password
+  REDIS_PASSWORD: cmVkaXMtc2VjdXJl  # redis-secure
+  
+  # JWT secrets
+  JWT_SECRET: anlXVF9TRUNSRVRfS0VZX0ZPUl9RVUFOVFVNX1NJVEU=  # JWT_SECRET_KEY_FOR_QUANTUM_SITE
+  
+  # API keys (will be populated during deployment)
+  OPENAI_API_KEY: ""
+  ANTHROPIC_API_KEY: ""
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: quantum-data
+  labels:
+    app: postgresql
+    component: database
+spec:
+  selector:
+    app: postgresql
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgresql
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  namespace: quantum-data
+  labels:
+    app: postgresql
+    component: database
+spec:
+  serviceName: postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: quantum
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+        - name: initdb
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        readinessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - pg_isready -U quantum -d quantum
+          initialDelaySeconds: 15
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - pg_isready -U quantum -d quantum
+          initialDelaySeconds: 45
+          periodSeconds: 10
+      volumes:
+      - name: initdb
+        configMap:
+          name: postgresql-initdb
+  volumeClaimTemplates:
+  - metadata:
+      name: postgresql-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 20Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-initdb
+  namespace: quantum-data
+  labels:
+    app: postgresql
+data:
+  01-extensions.sql: |
+    -- Enable required extensions
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS vector;
+    CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: quantum-data
+  labels:
+    app: redis
+    component: cache
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: quantum-data
+  labels:
+    app: redis
+    component: cache
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        args:
+          - redis-server
+          - --requirepass
+          - $(REDIS_PASSWORD)
+          - --appendonly
+          - "yes"
+          - --maxmemory
+          - "1gb"
+          - --maxmemory-policy
+          - "allkeys-lru"
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: REDIS_PASSWORD
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          exec:
+            command:
+              - redis-cli
+              - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+              - redis-cli
+              - ping
+          initialDelaySeconds: 30
+          periodSeconds: 30
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  namespace: quantum-system
+  labels:
+    app: nats
+    component: messaging
+spec:
+  selector:
+    app: nats
+  ports:
+    - port: 4222
+      targetPort: 4222
+      name: nats
+    - port: 8222
+      targetPort: 8222
+      name: monitor
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+  namespace: quantum-system
+  labels:
+    app: nats
+    component: messaging
+spec:
+  serviceName: nats
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nats
+  template:
+    metadata:
+      labels:
+        app: nats
+    spec:
+      containers:
+      - name: nats
+        image: nats:2.10-alpine
+        ports:
+        - containerPort: 4222
+          name: nats
+        - containerPort: 8222
+          name: monitor
+        - containerPort: 6222
+          name: cluster
+        args:
+          - -js
+          - -D
+          - -c
+          - /etc/nats/nats.conf
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nats
+        - name: jetstream-data
+          mountPath: /data/jetstream
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8222
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8222
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: config
+        configMap:
+          name: nats-config
+  volumeClaimTemplates:
+  - metadata:
+      name: jetstream-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 5Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nats-config
+  namespace: quantum-system
+  labels:
+    app: nats
+data:
+  nats.conf: |
+    server_name: quantum-nats
+    port: 4222
+    monitor_port: 8222
+    
+    jetstream {
+      store_dir: /data/jetstream
+      max_memory_store: 256MB
+      max_file_store: 2GB
+    }
+    
+    cluster {
+      name: quantum-cluster
+      port: 6222
+      routes: [
+        nats://nats-0.nats.quantum-system.svc.cluster.local:6222
+        nats://nats-1.nats.quantum-system.svc.cluster.local:6222
+        nats://nats-2.nats.quantum-system.svc.cluster.local:6222
+      ]
+    }

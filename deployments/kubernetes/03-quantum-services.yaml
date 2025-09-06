@@ -1,0 +1,713 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: quantum-gateway
+  namespace: quantum-services
+  labels:
+    app: quantum-gateway
+    component: api-gateway
+spec:
+  selector:
+    app: quantum-gateway
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+    - port: 9090
+      targetPort: 9090
+      name: metrics
+  type: LoadBalancer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quantum-gateway
+  namespace: quantum-services
+  labels:
+    app: quantum-gateway
+    component: api-gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: quantum-gateway
+  template:
+    metadata:
+      labels:
+        app: quantum-gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: quantum-gateway
+        image: quantum-suite/gateway:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: PORT
+          value: "8080"
+        - name: METRICS_PORT
+          value: "9090"
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_DATABASE
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_PASSWORD
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: REDIS_HOST
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: REDIS_PASSWORD
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: NATS_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: JWT_SECRET
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: LOG_LEVEL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qagent
+  namespace: quantum-services
+  labels:
+    app: qagent
+    component: agent
+spec:
+  selector:
+    app: qagent
+  ports:
+    - port: 8110
+      targetPort: 8110
+      name: http
+    - port: 9091
+      targetPort: 9091
+      name: metrics
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qagent
+  namespace: quantum-services
+  labels:
+    app: qagent
+    component: agent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qagent
+  template:
+    metadata:
+      labels:
+        app: qagent
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: qagent
+        image: quantum-suite/qagent:latest
+        ports:
+        - containerPort: 8110
+          name: http
+        - containerPort: 9091
+          name: metrics
+        env:
+        - name: PORT
+          value: "8110"
+        - name: METRICS_PORT
+          value: "9091"
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_DATABASE
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_PASSWORD
+        - name: QDRANT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: QDRANT_URL
+        - name: WEAVIATE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: WEAVIATE_URL
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: NATS_URL
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: OPENAI_API_KEY
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: ANTHROPIC_API_KEY
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8110
+          initialDelaySeconds: 15
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8110
+          initialDelaySeconds: 45
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qtest
+  namespace: quantum-services
+  labels:
+    app: qtest
+    component: testing
+spec:
+  selector:
+    app: qtest
+  ports:
+    - port: 8120
+      targetPort: 8120
+      name: http
+    - port: 9092
+      targetPort: 9092
+      name: metrics
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qtest
+  namespace: quantum-services
+  labels:
+    app: qtest
+    component: testing
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qtest
+  template:
+    metadata:
+      labels:
+        app: qtest
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9092"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: qtest
+        image: quantum-suite/qtest:latest
+        ports:
+        - containerPort: 8120
+          name: http
+        - containerPort: 9092
+          name: metrics
+        env:
+        - name: PORT
+          value: "8120"
+        - name: METRICS_PORT
+          value: "9092"
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_DATABASE
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_PASSWORD
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: NATS_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8120
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8120
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qsecure
+  namespace: quantum-services
+  labels:
+    app: qsecure
+    component: security
+spec:
+  selector:
+    app: qsecure
+  ports:
+    - port: 8130
+      targetPort: 8130
+      name: http
+    - port: 9093
+      targetPort: 9093
+      name: metrics
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qsecure
+  namespace: quantum-services
+  labels:
+    app: qsecure
+    component: security
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qsecure
+  template:
+    metadata:
+      labels:
+        app: qsecure
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9093"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: qsecure
+        image: quantum-suite/qsecure:latest
+        ports:
+        - containerPort: 8130
+          name: http
+        - containerPort: 9093
+          name: metrics
+        env:
+        - name: PORT
+          value: "8130"
+        - name: METRICS_PORT
+          value: "9093"
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_DATABASE
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_PASSWORD
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: NATS_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8130
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8130
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qsre
+  namespace: quantum-services
+  labels:
+    app: qsre
+    component: sre
+spec:
+  selector:
+    app: qsre
+  ports:
+    - port: 8140
+      targetPort: 8140
+      name: http
+    - port: 9094
+      targetPort: 9094
+      name: metrics
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qsre
+  namespace: quantum-services
+  labels:
+    app: qsre
+    component: sre
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qsre
+  template:
+    metadata:
+      labels:
+        app: qsre
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9094"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: qsre
+        image: quantum-suite/qsre:latest
+        ports:
+        - containerPort: 8140
+          name: http
+        - containerPort: 9094
+          name: metrics
+        env:
+        - name: PORT
+          value: "8140"
+        - name: METRICS_PORT
+          value: "9094"
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_DATABASE
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_PASSWORD
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: NATS_URL
+        - name: PROMETHEUS_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: PROMETHEUS_ENDPOINT
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8140
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8140
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qinfra
+  namespace: quantum-services
+  labels:
+    app: qinfra
+    component: infrastructure
+spec:
+  selector:
+    app: qinfra
+  ports:
+    - port: 8150
+      targetPort: 8150
+      name: http
+    - port: 9095
+      targetPort: 9095
+      name: metrics
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qinfra
+  namespace: quantum-services
+  labels:
+    app: qinfra
+    component: infrastructure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qinfra
+  template:
+    metadata:
+      labels:
+        app: qinfra
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9095"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: qinfra
+        image: quantum-suite/qinfra:latest
+        ports:
+        - containerPort: 8150
+          name: http
+        - containerPort: 9095
+          name: metrics
+        env:
+        - name: PORT
+          value: "8150"
+        - name: METRICS_PORT
+          value: "9095"
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: POSTGRES_DATABASE
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: quantum-secrets
+              key: POSTGRES_PASSWORD
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-config
+              key: NATS_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8150
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8150
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+# Horizontal Pod Autoscaler for QAgent (high CPU workload)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: qagent-hpa
+  namespace: quantum-services
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: qagent
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

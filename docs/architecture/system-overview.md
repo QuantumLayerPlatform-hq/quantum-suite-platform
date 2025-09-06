@@ -63,6 +63,8 @@ graph TB
         VAL[Validators]
         EMB[Embedding Service]
         PROMPT[Prompt Engine]
+        TEMPORAL[Temporal Workflows]
+        QLAFS[QLAFS Fingerprinting]
     end
     
     %% Data Layer
@@ -114,21 +116,31 @@ graph TB
     QA --> MCPH
     QA --> VAL
     QA --> EMB
+    QA --> TEMPORAL
+    QA --> QLAFS
     
     QT --> VAL
     QT --> EMB
     QT --> ORCH
+    QT --> TEMPORAL
+    QT --> QLAFS
     
     QS --> VAL
     QS --> ORCH
+    QS --> TEMPORAL
+    QS --> QLAFS
     
     QR --> ORCH
     QR --> PROM
+    QR --> TEMPORAL
+    QR --> QLAFS
     
     QI --> ORCH
     QI --> AWS
     QI --> AZURE
     QI --> GCP
+    QI --> TEMPORAL
+    QI --> QLAFS
     
     LLM --> OPENAI
     LLM --> ANTHROPIC
@@ -284,13 +296,46 @@ graph TB
 - **Architecture**: Distributed with read replicas
 - **Scaling**: Horizontal partitioning with consistent hashing
 
-#### Orchestration Engine
-- **Purpose**: Workflow coordination and state management
+#### Temporal Workflow Engine
+- **Purpose**: Durable workflow orchestration and state management
 - **Features**:
-  - Complex workflow execution
-  - State management and persistence
-  - Error handling and retries
-  - Resource allocation
+  - Long-running workflow execution
+  - Human-in-the-loop workflows
+  - Compensating transactions and rollbacks
+  - Workflow versioning and migration
+  - Built-in retry policies and timeouts
+- **Architecture**: Distributed with PostgreSQL persistence
+- **Scaling**: Horizontal scaling with sharded task queues
+- **Use Cases**:
+  - Multi-step code generation pipelines
+  - Infrastructure provisioning workflows
+  - Security remediation chains
+  - Cross-module orchestration
+
+#### QLAFS (QuantumLayer Agent Fingerprinting System)
+- **Purpose**: AI agent fingerprinting, provenance tracking, and trust scoring
+- **Features**:
+  - Multi-dimensional fingerprinting (static, behavioral, cognitive, compositional)
+  - Transparency logs with Merkle trees
+  - Byzantine consensus validation
+  - Zero-knowledge proofs for privacy
+  - Lineage DAG for agent evolution tracking
+  - Trust scoring engine with continuous learning
+- **Architecture**: Distributed with HSM key management and consensus protocols
+- **Scaling**: Federated deployment across regions with consensus synchronization
+- **Use Cases**:
+  - AI agent authenticity verification
+  - Code generation provenance tracking
+  - Compliance audit trails
+  - Trust-based agent selection
+
+#### Orchestration Engine
+- **Purpose**: Event-driven coordination and state management
+- **Features**:
+  - Event-sourced state management
+  - CQRS pattern implementation
+  - Complex event processing
+  - Resource allocation and scheduling
 - **Architecture**: Event-sourced with CQRS
 - **Scaling**: Actor model with distributed state
 
@@ -392,6 +437,7 @@ graph LR
 ### Message Systems
 - **Event Bus**: NATS (Event streaming, pub/sub)
 - **Queue**: NATS JetStream (Job processing, workflows)
+- **Workflow Engine**: Temporal (Durable workflows, state management)
 - **Streaming**: Apache Kafka (High-volume event streams)
 
 ### Container Platform
@@ -417,6 +463,8 @@ graph LR
 - **Local Models**: Ollama, vLLM (Self-hosted models)
 - **Embeddings**: OpenAI ada-002, Sentence Transformers
 - **Vector Search**: Qdrant, Weaviate, Milvus
+- **AI Governance**: QLAFS (Agent fingerprinting, provenance tracking)
+- **Trust & Compliance**: Zero-knowledge proofs, Byzantine consensus
 
 ## Deployment Architecture
 

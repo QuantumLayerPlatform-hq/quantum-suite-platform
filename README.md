@@ -22,7 +22,7 @@ Quantum Suite is a next-generation platform that reimagines software development
 The Quantum Suite platform is organized across multiple repositories:
 
 ### Core Platform
-- **[quantum-suite-platform](https://github.com/QuantumLayerPlatform-hq/quantum-suite-platform)** - This repository containing shared services and core infrastructure
+- **[quantum-suite-platform](https://github.com/QuantumLayerPlatform-hq/quantum-suite-platform)** - This repository containing shared services, workflow orchestration, and AI governance infrastructure
 
 ### Application Modules
 - **[qagent](https://github.com/QuantumLayerPlatform-hq/qagent)** - AI-powered code generation
@@ -47,7 +47,8 @@ The Quantum Suite platform is organized across multiple repositories:
 │       │            │            │            │            │      │
 │  ┌────┴────────────┴────────────┴────────────┴────────────┴────┐│
 │  │                    Shared Services Layer                     ││
-│  │ • LLM Gateway  • Vector Store  • MCP Hub  • Orchestration   ││
+│  │ • LLM Gateway    • Vector Store    • MCP Hub                ││
+│  │ • Temporal       • QLAFS           • Orchestration          ││
 │  └───────────────────────────────────────────────────────────────┘
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -142,11 +143,17 @@ quantum test generate --code ./src/main.go --type unit
 # Scan security
 quantum secure scan ./
 
-# Provision infrastructure
-quantum infra provision --provider aws --region us-west-2
+# Provision infrastructure with workflows
+quantum infra provision --provider aws --region us-west-2 --workflow
 
 # Monitor services
 quantum sre monitor --service api
+
+# Fingerprint AI agents
+quantum fingerprint agent --agent-id qa-001 --verify-lineage
+
+# Execute workflows
+quantum workflow start --type code-generation --params config.yaml
 ```
 
 ## 📊 Key Features
@@ -192,10 +199,13 @@ quantum sre monitor --service api
 - **Databases**: PostgreSQL 15+, Redis 7+
 - **Vector DB**: Qdrant, Weaviate, PGVector
 - **Message Queue**: NATS, Kafka
+- **Workflow Engine**: Temporal (Durable workflows)
+- **AI Governance**: QLAFS (Agent fingerprinting & provenance)
 - **Containers**: Docker, Kubernetes
 - **Observability**: Prometheus, Grafana, Jaeger
 - **Infrastructure**: Terraform, Helm
 - **AI/ML**: OpenAI, Anthropic, Local LLMs
+- **Security**: Zero-knowledge proofs, HSM, Byzantine consensus
 
 ## 🤝 Contributing
 

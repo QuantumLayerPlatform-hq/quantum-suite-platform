@@ -10,6 +10,8 @@ info:
     - 🔒 **QSecure**: Automated security scanning and remediation
     - 📊 **QSRE**: Site reliability engineering with anomaly detection
     - ☁️ **QInfra**: Multi-cloud infrastructure orchestration
+    - 🔄 **Workflows**: Temporal-based durable workflow orchestration
+    - 🛡️ **QLAFS**: AI agent fingerprinting and provenance tracking
     
     ## Authentication
     All API endpoints require authentication via API key in the Authorization header:
@@ -526,6 +528,480 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ComplianceStatus'
+
+  # =============================================================================
+  # TEMPORAL WORKFLOWS ENDPOINTS
+  # =============================================================================
+  
+  /workflows:
+    post:
+      tags:
+        - Workflows
+      summary: Start a workflow
+      description: |
+        Start a new Temporal workflow execution with specified parameters.
+        Supports various workflow types including code generation pipelines,
+        infrastructure provisioning, and security remediation workflows.
+      operationId: startWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartWorkflowRequest'
+            examples:
+              code_pipeline:
+                summary: Code generation pipeline
+                value:
+                  workflow_type: "CodeGenerationPipeline"
+                  task_queue: "quantum-workflows"
+                  input:
+                    prompt: "Create a REST API for user management"
+                    language: "go"
+                    include_tests: true
+                    include_security_scan: true
+              infra_provision:
+                summary: Infrastructure provisioning
+                value:
+                  workflow_type: "InfraProvisionWorkflow"
+                  task_queue: "quantum-infra"
+                  input:
+                    provider: "aws"
+                    region: "us-west-2"
+                    resources:
+                      - type: "vpc"
+                        config: {}
+      responses:
+        '201':
+          description: Workflow started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowExecution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags:
+        - Workflows
+      summary: List workflow executions
+      description: Get a list of workflow executions with optional filtering
+      operationId: listWorkflows
+      parameters:
+        - name: workflow_type
+          in: query
+          schema:
+            type: string
+          description: Filter by workflow type
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [RUNNING, COMPLETED, FAILED, CANCELLED, TERMINATED]
+          description: Filter by workflow status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: next_page_token
+          in: query
+          schema:
+            type: string
+          description: Pagination token
+      responses:
+        '200':
+          description: Workflow executions retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowList'
+
+  /workflows/{workflowId}:
+    get:
+      tags:
+        - Workflows
+      summary: Get workflow execution details
+      description: Get detailed information about a specific workflow execution
+      operationId: getWorkflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Workflow execution ID
+      responses:
+        '200':
+          description: Workflow details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowExecution'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Workflows
+      summary: Cancel workflow execution
+      description: Cancel a running workflow execution
+      operationId: cancelWorkflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Workflow execution ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for cancellation
+      responses:
+        '200':
+          description: Workflow cancelled successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/{workflowId}/signal:
+    post:
+      tags:
+        - Workflows
+      summary: Send signal to workflow
+      description: Send a signal to a running workflow for human-in-the-loop interactions
+      operationId: signalWorkflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Workflow execution ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowSignal'
+      responses:
+        '200':
+          description: Signal sent successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workflows/{workflowId}/history:
+    get:
+      tags:
+        - Workflows
+      summary: Get workflow execution history
+      description: Get detailed execution history of a workflow
+      operationId: getWorkflowHistory
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Workflow execution ID
+        - name: next_page_token
+          in: query
+          schema:
+            type: string
+          description: Pagination token for history events
+      responses:
+        '200':
+          description: Workflow history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowHistory'
+
+  # =============================================================================
+  # QLAFS - AI GOVERNANCE & FINGERPRINTING ENDPOINTS  
+  # =============================================================================
+
+  /qlafs/fingerprint:
+    post:
+      tags:
+        - QLAFS
+      summary: Generate agent fingerprint
+      description: |
+        Generate a multi-dimensional fingerprint for an AI agent including static,
+        behavioral, cognitive, and compositional characteristics.
+      operationId: generateFingerprint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FingerprintRequest'
+            examples:
+              code_agent:
+                summary: Code generation agent fingerprint
+                value:
+                  agent_id: "qagent-v1.2.3"
+                  agent_type: "code_generation"
+                  dimensions: ["static", "behavioral", "cognitive"]
+                  data:
+                    model_info:
+                      architecture: "transformer"
+                      parameters: 175000000000
+                    behavior_sample:
+                      - input: "create function"
+                        output: "def create_function():"
+                        confidence: 0.95
+                  metadata:
+                    version: "1.2.3"
+                    training_date: "2024-01-15"
+      responses:
+        '201':
+          description: Fingerprint generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FingerprintResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /qlafs/fingerprint/{agentId}:
+    get:
+      tags:
+        - QLAFS
+      summary: Retrieve agent fingerprint
+      description: Get the stored fingerprint for a specific AI agent
+      operationId: getFingerprint
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: AI agent identifier
+        - name: include_dimensions
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [static, behavioral, cognitive, compositional]
+          description: Specific fingerprint dimensions to retrieve
+      responses:
+        '200':
+          description: Fingerprint retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentFingerprint'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /qlafs/provenance:
+    post:
+      tags:
+        - QLAFS
+      summary: Record provenance event
+      description: |
+        Record a provenance event for AI agent operations to maintain
+        complete lineage and audit trail.
+      operationId: recordProvenance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvenanceEvent'
+            examples:
+              code_generation:
+                summary: Code generation provenance
+                value:
+                  agent_id: "qagent-v1.2.3"
+                  operation_id: "codegen-123"
+                  operation_type: "code_generation"
+                  input_hash: "sha256:abc123..."
+                  output_hash: "sha256:def456..."
+                  lineage:
+                    parent_operations: ["prompt-parse-456"]
+                  metadata:
+                    model_version: "1.2.3"
+                    tokens_used: 1500
+                    execution_time_ms: 2300
+      responses:
+        '201':
+          description: Provenance recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvenanceRecord'
+
+  /qlafs/provenance/{agentId}/lineage:
+    get:
+      tags:
+        - QLAFS
+      summary: Get agent operation lineage
+      description: |
+        Retrieve the complete lineage DAG (Directed Acyclic Graph) for an agent's operations
+        showing dependencies and evolution over time.
+      operationId: getAgentLineage
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: AI agent identifier
+        - name: operation_type
+          in: query
+          schema:
+            type: string
+          description: Filter lineage by operation type
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 5
+          description: Maximum depth of lineage to retrieve
+      responses:
+        '200':
+          description: Lineage retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineageDAG'
+
+  /qlafs/trust/{agentId}:
+    get:
+      tags:
+        - QLAFS
+      summary: Get agent trust score
+      description: |
+        Retrieve the current trust score for an AI agent based on performance,
+        security, behavioral, and community metrics.
+      operationId: getAgentTrustScore
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: AI agent identifier
+        - name: include_breakdown
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include detailed score breakdown by category
+      responses:
+        '200':
+          description: Trust score retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustScore'
+
+  /qlafs/trust/batch:
+    post:
+      tags:
+        - QLAFS
+      summary: Update multiple trust scores
+      description: |
+        Batch update trust scores for multiple agents based on new performance
+        or behavioral data.
+      operationId: updateTrustScores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchTrustUpdate'
+      responses:
+        '200':
+          description: Trust scores updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTrustUpdateResponse'
+
+  /qlafs/transparency/verify:
+    post:
+      tags:
+        - QLAFS
+      summary: Verify transparency log entry
+      description: |
+        Verify the integrity of a transparency log entry using Merkle tree proofs
+        and cryptographic verification.
+      operationId: verifyTransparencyEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransparencyVerification'
+      responses:
+        '200':
+          description: Verification completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+
+  /qlafs/compliance/report:
+    get:
+      tags:
+        - QLAFS
+      summary: Generate compliance report
+      description: |
+        Generate a comprehensive compliance report with zero-knowledge proofs
+        for privacy-preserving audit trails.
+      operationId: generateComplianceReport
+      parameters:
+        - name: report_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [SOC2, ISO27001, GDPR, HIPAA]
+          description: Type of compliance report to generate
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Start date for report period
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: End date for report period
+        - name: include_zk_proofs
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Include zero-knowledge proofs for privacy
+      responses:
+        '200':
+          description: Compliance report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceReport'
 
   # =============================================================================
   # SHARED ENDPOINTS
@@ -1673,6 +2149,663 @@ components:
         has_more:
           type: boolean
 
+    # =============================================================================
+    # TEMPORAL WORKFLOW SCHEMAS
+    # =============================================================================
+
+    StartWorkflowRequest:
+      type: object
+      required:
+        - workflow_type
+        - task_queue
+        - input
+      properties:
+        workflow_type:
+          type: string
+          description: Type of workflow to execute
+          enum:
+            - CodeGenerationPipeline
+            - InfraProvisionWorkflow
+            - SecurityRemediationWorkflow
+            - TestExecutionWorkflow
+            - DevSecOpsPipeline
+        task_queue:
+          type: string
+          description: Temporal task queue name
+          default: quantum-workflows
+        input:
+          type: object
+          description: Workflow-specific input parameters
+        workflow_id:
+          type: string
+          description: Optional custom workflow ID
+        timeout:
+          type: string
+          description: Workflow timeout duration (e.g., "30m", "24h")
+          default: "24h"
+        retry_policy:
+          type: object
+          properties:
+            max_attempts:
+              type: integer
+              minimum: 1
+              maximum: 10
+              default: 3
+            initial_interval:
+              type: string
+              default: "1s"
+            backoff_coefficient:
+              type: number
+              default: 2.0
+
+    WorkflowExecution:
+      type: object
+      required:
+        - workflow_id
+        - run_id
+        - workflow_type
+        - status
+        - created_at
+      properties:
+        workflow_id:
+          type: string
+          description: Unique workflow identifier
+        run_id:
+          type: string
+          description: Unique run identifier
+        workflow_type:
+          type: string
+          description: Type of workflow
+        task_queue:
+          type: string
+          description: Task queue name
+        status:
+          type: string
+          enum: [RUNNING, COMPLETED, FAILED, CANCELLED, TERMINATED]
+          description: Current workflow status
+        created_at:
+          type: string
+          format: date-time
+          description: Workflow creation timestamp
+        started_at:
+          type: string
+          format: date-time
+          description: Workflow start timestamp
+        completed_at:
+          type: string
+          format: date-time
+          description: Workflow completion timestamp
+        input:
+          type: object
+          description: Workflow input parameters
+        result:
+          type: object
+          description: Workflow execution result
+        error:
+          type: string
+          description: Error message if workflow failed
+
+    WorkflowList:
+      type: object
+      required:
+        - executions
+        - pagination
+      properties:
+        executions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowExecution'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        next_page_token:
+          type: string
+          description: Token for retrieving next page
+
+    WorkflowSignal:
+      type: object
+      required:
+        - signal_name
+        - input
+      properties:
+        signal_name:
+          type: string
+          description: Name of the signal to send
+          examples:
+            - approval-confirmation
+            - security-review-complete
+            - human-intervention-required
+        input:
+          type: object
+          description: Signal input data
+
+    WorkflowHistory:
+      type: object
+      required:
+        - events
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              event_id:
+                type: integer
+              event_type:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+              attributes:
+                type: object
+        next_page_token:
+          type: string
+
+    # =============================================================================
+    # QLAFS SCHEMAS
+    # =============================================================================
+
+    FingerprintRequest:
+      type: object
+      required:
+        - agent_id
+        - agent_type
+        - dimensions
+        - data
+      properties:
+        agent_id:
+          type: string
+          description: Unique identifier for the AI agent
+          pattern: '^[a-zA-Z0-9-_]+$'
+        agent_type:
+          type: string
+          description: Type of AI agent
+          enum:
+            - code_generation
+            - test_generation
+            - security_scanning
+            - infrastructure_provisioning
+            - monitoring
+        dimensions:
+          type: array
+          items:
+            type: string
+            enum: [static, behavioral, cognitive, compositional]
+          minItems: 1
+          description: Fingerprint dimensions to generate
+        data:
+          type: object
+          description: Agent-specific data for fingerprinting
+          properties:
+            model_info:
+              type: object
+              properties:
+                architecture:
+                  type: string
+                parameters:
+                  type: integer
+                version:
+                  type: string
+            behavior_sample:
+              type: array
+              items:
+                type: object
+                properties:
+                  input:
+                    type: string
+                  output:
+                    type: string
+                  confidence:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+        metadata:
+          type: object
+          description: Additional metadata for fingerprinting
+
+    FingerprintResponse:
+      type: object
+      required:
+        - fingerprint_id
+        - agent_id
+        - fingerprint_hash
+        - dimensions
+        - confidence
+        - created_at
+      properties:
+        fingerprint_id:
+          type: string
+          description: Unique fingerprint identifier
+        agent_id:
+          type: string
+          description: Agent identifier
+        fingerprint_hash:
+          type: string
+          description: Cryptographic hash of the fingerprint
+        dimensions:
+          type: object
+          description: Fingerprint data by dimension
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence score of the fingerprint
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          description: Optional expiration time
+
+    AgentFingerprint:
+      type: object
+      required:
+        - agent_id
+        - fingerprint_hash
+        - dimensions
+        - confidence
+      properties:
+        agent_id:
+          type: string
+        fingerprint_hash:
+          type: string
+        dimensions:
+          type: object
+          properties:
+            static:
+              type: object
+              description: Static characteristics (model architecture, weights)
+            behavioral:
+              type: object
+              description: Behavioral patterns and responses
+            cognitive:
+              type: object
+              description: Reasoning and decision-making patterns
+            compositional:
+              type: object
+              description: Interactions with other agents and systems
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        last_updated:
+          type: string
+          format: date-time
+
+    ProvenanceEvent:
+      type: object
+      required:
+        - agent_id
+        - operation_id
+        - operation_type
+        - input_hash
+        - output_hash
+      properties:
+        agent_id:
+          type: string
+          description: AI agent identifier
+        operation_id:
+          type: string
+          description: Unique operation identifier
+        operation_type:
+          type: string
+          description: Type of operation performed
+          enum:
+            - code_generation
+            - test_generation
+            - security_scan
+            - infrastructure_provision
+            - monitoring_analysis
+        input_hash:
+          type: string
+          pattern: '^sha256:[a-f0-9]{64}$'
+          description: SHA-256 hash of input data
+        output_hash:
+          type: string
+          pattern: '^sha256:[a-f0-9]{64}$'
+          description: SHA-256 hash of output data
+        lineage:
+          type: object
+          properties:
+            parent_operations:
+              type: array
+              items:
+                type: string
+              description: Parent operations in the lineage
+            child_operations:
+              type: array
+              items:
+                type: string
+              description: Child operations (if known)
+        metadata:
+          type: object
+          description: Operation-specific metadata
+        timestamp:
+          type: string
+          format: date-time
+          description: Operation timestamp
+
+    ProvenanceRecord:
+      type: object
+      required:
+        - record_id
+        - agent_id
+        - operation_id
+        - merkle_proof
+        - transparency_log_index
+      properties:
+        record_id:
+          type: string
+          description: Unique provenance record identifier
+        agent_id:
+          type: string
+        operation_id:
+          type: string
+        merkle_proof:
+          type: array
+          items:
+            type: string
+          description: Merkle tree proof for transparency log entry
+        transparency_log_index:
+          type: integer
+          description: Index in the transparency log
+        consensus_signatures:
+          type: array
+          items:
+            type: object
+            properties:
+              validator_id:
+                type: string
+              signature:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+        recorded_at:
+          type: string
+          format: date-time
+
+    LineageDAG:
+      type: object
+      required:
+        - agent_id
+        - nodes
+        - edges
+      properties:
+        agent_id:
+          type: string
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              operation_id:
+                type: string
+              operation_type:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+              metadata:
+                type: object
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              from:
+                type: string
+                description: Source operation ID
+              to:
+                type: string
+                description: Target operation ID
+              relationship:
+                type: string
+                enum: [parent, child, dependency, influence]
+        metadata:
+          type: object
+          description: DAG metadata including depth, complexity metrics
+
+    TrustScore:
+      type: object
+      required:
+        - agent_id
+        - overall_score
+        - confidence
+        - last_updated
+      properties:
+        agent_id:
+          type: string
+        overall_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Overall trust score (0-1)
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence in the trust score
+        breakdown:
+          type: object
+          properties:
+            performance:
+              type: object
+              properties:
+                score:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                weight:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                metrics:
+                  type: object
+            security:
+              type: object
+              properties:
+                score:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                weight:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                metrics:
+                  type: object
+            behavioral:
+              type: object
+              properties:
+                score:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                weight:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                metrics:
+                  type: object
+            community:
+              type: object
+              properties:
+                score:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                weight:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                metrics:
+                  type: object
+        last_updated:
+          type: string
+          format: date-time
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              score:
+                type: number
+              timestamp:
+                type: string
+                format: date-time
+
+    BatchTrustUpdate:
+      type: object
+      required:
+        - updates
+      properties:
+        updates:
+          type: array
+          items:
+            type: object
+            required:
+              - agent_id
+              - metrics
+            properties:
+              agent_id:
+                type: string
+              metrics:
+                type: object
+                description: New performance/behavioral metrics
+
+    BatchTrustUpdateResponse:
+      type: object
+      properties:
+        updated_count:
+          type: integer
+        failed_count:
+          type: integer
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              agent_id:
+                type: string
+              status:
+                type: string
+                enum: [success, failed]
+              new_score:
+                type: number
+              error:
+                type: string
+
+    TransparencyVerification:
+      type: object
+      required:
+        - record_id
+        - merkle_proof
+        - root_hash
+      properties:
+        record_id:
+          type: string
+        merkle_proof:
+          type: array
+          items:
+            type: string
+        root_hash:
+          type: string
+          description: Expected Merkle tree root hash
+        consensus_threshold:
+          type: number
+          minimum: 0.5
+          maximum: 1.0
+          default: 0.67
+
+    VerificationResult:
+      type: object
+      required:
+        - valid
+        - record_id
+        - verified_at
+      properties:
+        valid:
+          type: boolean
+          description: Whether the verification passed
+        record_id:
+          type: string
+        merkle_verification:
+          type: boolean
+          description: Merkle proof verification result
+        consensus_verification:
+          type: boolean
+          description: Consensus signature verification result
+        verified_at:
+          type: string
+          format: date-time
+        error_details:
+          type: string
+          description: Error details if verification failed
+
+    ComplianceReport:
+      type: object
+      required:
+        - report_id
+        - report_type
+        - period_start
+        - period_end
+        - generated_at
+      properties:
+        report_id:
+          type: string
+        report_type:
+          type: string
+          enum: [SOC2, ISO27001, GDPR, HIPAA]
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        generated_at:
+          type: string
+          format: date-time
+        summary:
+          type: object
+          properties:
+            total_operations:
+              type: integer
+            compliant_operations:
+              type: integer
+            compliance_rate:
+              type: number
+              minimum: 0
+              maximum: 1
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              section_name:
+                type: string
+              compliance_status:
+                type: string
+                enum: [compliant, non_compliant, partial]
+              details:
+                type: object
+        zero_knowledge_proofs:
+          type: array
+          items:
+            type: object
+            properties:
+              proof_type:
+                type: string
+              proof_data:
+                type: string
+              verification_key:
+                type: string
+
 # =============================================================================
 # TAGS
 # =============================================================================
@@ -1688,6 +2821,10 @@ tags:
     description: Site reliability engineering and monitoring
   - name: QInfra
     description: Infrastructure orchestration and management
+  - name: Workflows
+    description: Temporal workflow orchestration and management
+  - name: QLAFS
+    description: AI agent fingerprinting, provenance tracking, and trust scoring
   - name: Projects
     description: Project management operations
   - name: Workspaces
