@@ -1,0 +1,115 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: qlens-peer-auth
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: security
+spec:
+  mtls:
+    mode: STRICT  # Enforce mTLS for all communication
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: qlens-gateway-authz
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-gateway
+    app.kubernetes.io/component: security
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qlens-gateway
+  rules:
+  # Allow health checks from anywhere
+  - to:
+    - operation:
+        paths: ["/health", "/health/ready", "/health/live"]
+  # Allow API access with proper authentication
+  - to:
+    - operation:
+        paths: ["/v1/*"]
+    when:
+    - key: request.headers[x-tenant-id]
+      values: ["*"]  # Must have tenant ID
+    - key: request.headers[x-user-id]
+      values: ["*"]   # Must have user ID
+    - key: source.namespace
+      values: ["istio-system", "quantum-system"]  # Only from trusted namespaces
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: qlens-router-authz
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-router
+    app.kubernetes.io/component: security
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qlens-router
+  rules:
+  # Allow health checks
+  - to:
+    - operation:
+        paths: ["/health", "/health/ready"]
+  # Allow internal API calls only from gateway
+  - to:
+    - operation:
+        paths: ["/internal/v1/*"]
+    when:
+    - key: source.principal
+      values: ["cluster.local/ns/quantum-system/sa/qlens"]
+    - key: request.headers[x-internal-call]
+      values: ["true"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: qlens-cache-authz
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-cache
+    app.kubernetes.io/component: security
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qlens-cache
+  rules:
+  # Allow health checks
+  - to:
+    - operation:
+        paths: ["/health", "/health/ready"]
+  # Allow internal cache operations only from router
+  - to:
+    - operation:
+        paths: ["/internal/v1/cache/*"]
+    when:
+    - key: source.principal
+      values: ["cluster.local/ns/quantum-system/sa/qlens"]
+    - key: request.headers[x-internal-call]
+      values: ["true"]
+    - key: request.headers[x-tenant-id]
+      values: ["*"]  # Must have tenant context for cache isolation
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-default
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: security
+spec:
+  # This creates a default deny-all policy
+  # Services must explicitly be allowed above
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: quantum-suite

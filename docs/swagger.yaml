@@ -1,0 +1,702 @@
+basePath: /v1
+definitions:
+  ChatCompletionRequest:
+    properties:
+      frequency_penalty:
+        example: 0
+        type: number
+      max_tokens:
+        example: 100
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/Message'
+        type: array
+      model:
+        example: gpt-4
+        type: string
+      "n":
+        example: 1
+        type: integer
+      presence_penalty:
+        example: 0
+        type: number
+      stop:
+        items:
+          type: string
+        type: array
+      stream:
+        example: false
+        type: boolean
+      temperature:
+        example: 0.7
+        type: number
+      top_p:
+        example: 1
+        type: number
+      user:
+        example: user123
+        type: string
+    required:
+    - messages
+    - model
+    type: object
+  ChatCompletionResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/Choice'
+        type: array
+      created:
+        example: 1677652288
+        type: integer
+      id:
+        example: chatcmpl-123
+        type: string
+      model:
+        example: gpt-4
+        type: string
+      object:
+        example: chat.completion
+        type: string
+      usage:
+        $ref: '#/definitions/Usage'
+    type: object
+  Choice:
+    properties:
+      finish_reason:
+        example: stop
+        type: string
+      index:
+        example: 0
+        type: integer
+      message:
+        $ref: '#/definitions/Message'
+    type: object
+  ErrorDetail:
+    properties:
+      code:
+        example: invalid_json
+        type: string
+      message:
+        example: Invalid request
+        type: string
+      type:
+        example: invalid_request_error
+        type: string
+    type: object
+  ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/ErrorDetail'
+    type: object
+  Message:
+    properties:
+      content:
+        example: Hello, how are you?
+        type: string
+      role:
+        enum:
+        - system
+        - user
+        - assistant
+        example: user
+        type: string
+    type: object
+  MetricsResponse:
+    properties:
+      error_count:
+        example: 5
+        type: integer
+      request_count:
+        example: 100
+        type: integer
+      uptime:
+        example: 24h30m
+        type: string
+      version:
+        example: 1.0.0
+        type: string
+    type: object
+  Usage:
+    properties:
+      completion_tokens:
+        example: 12
+        type: integer
+      prompt_tokens:
+        example: 9
+        type: integer
+      total_tokens:
+        example: 21
+        type: integer
+    type: object
+  domain.Capability:
+    enum:
+    - completion
+    - embedding
+    - vision
+    - code
+    - function_calling
+    type: string
+    x-enum-varnames:
+    - CapabilityCompletion
+    - CapabilityEmbedding
+    - CapabilityVision
+    - CapabilityCode
+    - CapabilityFunctionCalling
+  domain.Choice:
+    properties:
+      finish_reason:
+        $ref: '#/definitions/domain.FinishReason'
+      index:
+        type: integer
+      logprobs: {}
+      message:
+        $ref: '#/definitions/domain.Message'
+    type: object
+  domain.ContentPart:
+    properties:
+      image_url:
+        $ref: '#/definitions/domain.ImageURL'
+      text:
+        type: string
+      type:
+        $ref: '#/definitions/domain.ContentType'
+    type: object
+  domain.ContentType:
+    enum:
+    - text
+    - image_url
+    type: string
+    x-enum-varnames:
+    - ContentTypeText
+    - ContentTypeImageURL
+  domain.Embedding:
+    properties:
+      embedding:
+        items:
+          type: number
+        type: array
+      index:
+        type: integer
+      object:
+        type: string
+    type: object
+  domain.EmbeddingUsage:
+    properties:
+      cost_usd:
+        type: number
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  domain.FinishReason:
+    enum:
+    - stop
+    - length
+    - tool_calls
+    - content_filter
+    - function_call
+    type: string
+    x-enum-varnames:
+    - FinishReasonStop
+    - FinishReasonLength
+    - FinishReasonToolCalls
+    - FinishReasonContentFilter
+    - FinishReasonFunctionCall
+  domain.FunctionCall:
+    properties:
+      arguments:
+        type: string
+      name:
+        type: string
+    type: object
+  domain.ImageURL:
+    properties:
+      detail:
+        type: string
+      url:
+        type: string
+    type: object
+  domain.Message:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/domain.ContentPart'
+        type: array
+      name:
+        type: string
+      role:
+        $ref: '#/definitions/domain.MessageRole'
+      tool_call_id:
+        type: string
+      tool_calls:
+        items:
+          $ref: '#/definitions/domain.ToolCall'
+        type: array
+    type: object
+  domain.MessageRole:
+    enum:
+    - system
+    - user
+    - assistant
+    - tool
+    type: string
+    x-enum-varnames:
+    - MessageRoleSystem
+    - MessageRoleUser
+    - MessageRoleAssistant
+    - MessageRoleTool
+  domain.Model:
+    properties:
+      capabilities:
+        items:
+          $ref: '#/definitions/domain.Capability'
+        type: array
+      context_length:
+        type: integer
+      description:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      pricing:
+        $ref: '#/definitions/domain.ModelPricing'
+      provider:
+        $ref: '#/definitions/domain.Provider'
+      status:
+        $ref: '#/definitions/domain.ModelStatus'
+    type: object
+  domain.ModelPricing:
+    properties:
+      input_token_cost:
+        type: number
+      output_token_cost:
+        type: number
+      unit:
+        type: string
+    type: object
+  domain.ModelStatus:
+    enum:
+    - available
+    - deprecated
+    - limited
+    type: string
+    x-enum-varnames:
+    - ModelStatusAvailable
+    - ModelStatusDeprecated
+    - ModelStatusLimited
+  domain.Provider:
+    enum:
+    - openai
+    - azure-openai
+    - anthropic
+    - aws-bedrock
+    - local
+    - auto
+    type: string
+    x-enum-varnames:
+    - ProviderOpenAI
+    - ProviderAzureOpenAI
+    - ProviderAnthropic
+    - ProviderAWSBedrock
+    - ProviderLocal
+    - ProviderAuto
+  domain.ToolCall:
+    properties:
+      function:
+        $ref: '#/definitions/domain.FunctionCall'
+      id:
+        type: string
+      type:
+        type: string
+    type: object
+  domain.Usage:
+    properties:
+      cache_hit:
+        type: boolean
+      completion_tokens:
+        type: integer
+      cost_usd:
+        type: number
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  gateway.CompletionRequest:
+    properties:
+      frequency_penalty:
+        type: number
+      max_tokens:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/domain.Message'
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      model:
+        type: string
+      presence_penalty:
+        type: number
+      provider:
+        $ref: '#/definitions/domain.Provider'
+      stop:
+        items:
+          type: string
+        type: array
+      stream:
+        type: boolean
+      temperature:
+        type: number
+      top_p:
+        type: number
+      user:
+        type: string
+    type: object
+  gateway.CompletionResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/domain.Choice'
+        type: array
+      created:
+        type: integer
+      id:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      model:
+        type: string
+      object:
+        type: string
+      provider:
+        $ref: '#/definitions/domain.Provider'
+      usage:
+        $ref: '#/definitions/domain.Usage'
+    type: object
+  gateway.EmbeddingRequest:
+    properties:
+      dimensions:
+        type: integer
+      encoding_format:
+        type: string
+      input:
+        items:
+          type: string
+        type: array
+      model:
+        type: string
+      provider:
+        $ref: '#/definitions/domain.Provider'
+      user:
+        type: string
+    type: object
+  gateway.EmbeddingResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/domain.Embedding'
+        type: array
+      model:
+        type: string
+      object:
+        type: string
+      provider:
+        $ref: '#/definitions/domain.Provider'
+      usage:
+        $ref: '#/definitions/domain.EmbeddingUsage'
+    type: object
+  gateway.HealthResponse:
+    properties:
+      providers:
+        additionalProperties:
+          $ref: '#/definitions/gateway.ProviderHealth'
+        type: object
+      services:
+        additionalProperties:
+          $ref: '#/definitions/gateway.ServiceHealth'
+        type: object
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  gateway.ModelsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/domain.Model'
+        type: array
+      object:
+        type: string
+    type: object
+  gateway.ProviderHealth:
+    properties:
+      error_rate:
+        type: number
+      latency_ms:
+        type: integer
+      status:
+        type: string
+    type: object
+  gateway.ServiceHealth:
+    properties:
+      latency_ms:
+        type: integer
+      status:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@quantumlayer.ai
+    name: QLens Support
+    url: https://quantumlayer.ai/support
+  description: QLens LLM Gateway Service - Unified API for multiple LLM providers
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://quantumlayer.ai/terms
+  title: QLens Gateway API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Check if the gateway service is healthy and ready to serve requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is healthy
+          schema:
+            $ref: '#/definitions/gateway.HealthResponse'
+        "503":
+          description: Service is unhealthy
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Health check endpoint
+      tags:
+      - health
+  /ready:
+    get:
+      consumes:
+      - application/json
+      description: Check if the gateway service is ready to serve requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            $ref: '#/definitions/gateway.HealthResponse'
+        "503":
+          description: Service is not ready
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Readiness check endpoint
+      tags:
+      - health
+  /v1/chat/completions:
+    post:
+      consumes:
+      - application/json
+      description: Generate a chat completion using the specified model and messages
+      parameters:
+      - description: Chat completion request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ChatCompletionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Chat completion response
+          schema:
+            $ref: '#/definitions/ChatCompletionResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Create chat completion
+      tags:
+      - completions
+  /v1/completions:
+    post:
+      consumes:
+      - application/json
+      description: Generate a text completion using the specified model (legacy endpoint)
+      parameters:
+      - description: Completion request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.CompletionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Completion response
+          schema:
+            $ref: '#/definitions/gateway.CompletionResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Create completion (legacy)
+      tags:
+      - completions
+  /v1/embeddings:
+    post:
+      consumes:
+      - application/json
+      description: Create vector embeddings for the given input text
+      parameters:
+      - description: Embedding request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.EmbeddingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Embedding response
+          schema:
+            $ref: '#/definitions/gateway.EmbeddingResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Create embeddings
+      tags:
+      - embeddings
+  /v1/internal/metrics:
+    get:
+      consumes:
+      - application/json
+      description: Get internal metrics for monitoring and debugging
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service metrics
+          schema:
+            $ref: '#/definitions/MetricsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get service metrics
+      tags:
+      - internal
+  /v1/models:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all available LLM models from all providers
+      parameters:
+      - description: Filter by provider
+        enum:
+        - azure-openai
+        - aws-bedrock
+        in: query
+        name: provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of available models
+          schema:
+            $ref: '#/definitions/gateway.ModelsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: List available models
+      tags:
+      - models
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+  TenantID:
+    description: Tenant identifier for multi-tenancy
+    in: header
+    name: X-Tenant-ID
+    type: apiKey
+swagger: "2.0"

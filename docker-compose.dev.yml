@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  qlens-gateway:
+    build:
+      context: .
+      dockerfile: cmd/qlens-gateway/Dockerfile
+    ports:
+      - "8105:8105"
+    environment:
+      - ENVIRONMENT=development
+      - SERVICE_NAME=qlens-gateway
+      - PORT=8105
+      - LOG_LEVEL=debug
+      - ISTIO_ENABLED=false
+      - AUTH_ENABLED=false
+    depends_on:
+      - qlens-router
+      - qlens-cache
+    networks:
+      - qlens-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8105/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  qlens-router:
+    build:
+      context: .
+      dockerfile: cmd/qlens-router/Dockerfile
+    ports:
+      - "8106:8106"
+    environment:
+      - ENVIRONMENT=development
+      - SERVICE_NAME=qlens-router
+      - PORT=8106
+      - LOG_LEVEL=debug
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - qlens-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8106/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  qlens-cache:
+    build:
+      context: .
+      dockerfile: cmd/qlens-cache/Dockerfile
+    ports:
+      - "8107:8107"
+    environment:
+      - ENVIRONMENT=development
+      - SERVICE_NAME=qlens-cache
+      - PORT=8107
+      - LOG_LEVEL=debug
+      - CACHE_TYPE=memory
+    networks:
+      - qlens-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8107/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  qlens-network:
+    driver: bridge

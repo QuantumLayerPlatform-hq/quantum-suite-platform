@@ -1,0 +1,224 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    ca-crl.pem: ""
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2025-09-03T02:41:05Z"
+    labels:
+      istio.io/config: "true"
+    name: istio-ca-crl
+    namespace: temporal
+    resourceVersion: "39802"
+    uid: 72d54f01-04b1-4336-9904-4c580168cc66
+- apiVersion: v1
+  data:
+    root-cert.pem: |
+      -----BEGIN CERTIFICATE-----
+      MIIC/TCCAeWgAwIBAgIRAKj1qPN3do3ENzmMYsrrepAwDQYJKoZIhvcNAQELBQAw
+      GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0yNTA5MDMwMDQwMDJaFw0zNTA5
+      MDEwMDQwMDJaMBgxFjAUBgNVBAoTDWNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3
+      DQEBAQUAA4IBDwAwggEKAoIBAQDASNnK0tf3x5wWEwWuBYOmFQ/VPTewugzJ/EbR
+      3NFVhbjV/9wFAr3mfRkmMZHQuVxtVsUDtKK+UwIu0eOBKU2lC8Gr7agv1iOOkeq/
+      kcZxaigC9ma8JbUBYhBvbpHhd1JNEGNV2RM6HKzvwjxXGXBdskVtRMWJuJB5y9Pf
+      NLJmvLGFVOp+gxSa5Vb3DDcJ+ir4iDvu7wCMCPbT30MMkot4OpUvdnKVdYufWIG1
+      01ZjnOhNldkoxEt1RHzk2HmnKp/24Ye7ImeC+M3fDptRXJclySHVsctDxJKJRLvu
+      edbQdE283U/nnQ7e5f2lZrVX1EG4OG3mySgo8Lxh+iXZ9/bfAgMBAAGjQjBAMA4G
+      A1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBT6xO8FEUel
+      jaUHcSdGcV6xu5JjYjANBgkqhkiG9w0BAQsFAAOCAQEABhu+7t50SQpyDEH2gXIe
+      MU+ykT5ov4IpNYUmirbgwgm/paGBuSka8WADps6WqvIZbiHr138aZY2uQiOhJFFy
+      crTlvklPIshECa2D79jZYQWyfJfCKI2zja1kZvzFOTOpTVEj2ym0eqFVVkvttxzp
+      sl+5vslqDvbp9V1lq2al0w2Dzveu1IObxXtnWzNYZTAv5JS/bkv8Nnko1+3uJxm/
+      r/q2dqW7P/fOyhtshTkw1d+mYFGkpHAxyUUPU5RgBUNEPsTY2dWfFAA0uDRuywv9
+      PR3MyncyODe1753dczkqh3WQ9OQFwFJbQ4xp6CflY/r3VnBOZW4s2rUHuibgH13J
+      hQ==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2025-09-03T02:41:05Z"
+    labels:
+      istio.io/config: "true"
+    name: istio-ca-root-cert
+    namespace: temporal
+    resourceVersion: "39801"
+    uid: 59cce881-0601-4da6-b828-55fd29d38d42
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBTCCAe2gAwIBAgIIMMYq2AaEuqAwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+      AxMKa3ViZXJuZXRlczAeFw0yNTA5MDIyMzA0MzJaFw0zNTA4MzEyMzA5MzJaMBUx
+      EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+      AoIBAQDQZPTv1qUWMYzMd+82eZZkoQzofbS+FOUCnqcmFmagGMaOuWqHit1NX5KE
+      GjDS0DBI0sTk0GiRPLPsNoehZexKRC0xsN9RVsE2gEj75pT7oLvP1BxbFI9/X5gv
+      wQY8z6IJ3ORA8iND99pL6Re1MATiA7CJW/3kdwZgo93+mhirLRTolvFsg/b7kH1v
+      SJ+GqSQB5Jr5EpGZ1PLoeJuR7pTNEuD74KRSmhu1hM6RubDefS2aG4j1zZILHKDf
+      uzxYHm99XNzkGxeDFd3TLcUyYk7qutfurAapoCXaGuQxdG7wI1IlHx1WRArDCGvB
+      Z+1DyLYlXrJBiCO2P4maMi41BLe3AgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+      BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBStBvTyw8p/O+SZtwZdO4Di7BTSvjAV
+      BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQB8zOG/3K9d
+      nZpNeciU+jxRs8mi2KyNrBN5tVvHzRghPUewIRJuKTe/0o12sGTZwFQNaqu1I+zR
+      uZe4hVB7VljKfXlpTFWv+CQZztOOgodQdkGzHgl1hxEkTCEO9koTqTf32AbUjmCv
+      8Lla3rJh77N1Mh8lIfOWebWM4OhaYRAKo/6/Vmc02JMuR4+x+vblcI6pmTQlHPjl
+      i5m0DvFaRp+xLPDujuAm0lhCejRyXB6Y5BhAGFH3DBUuCCytDcZCyINe1pfz3jux
+      OZz6hTCT2iAR2ceDb0BqVfD5R5GSg7I5xtXHzFhEYdWAObulsLjrcrGjTljVw6Aj
+      pvYaGh0uEzDb
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2025-09-03T02:41:05Z"
+    name: kube-root-ca.crt
+    namespace: temporal
+    resourceVersion: "39804"
+    uid: eaf5180b-76e1-4391-bc38-aaf35babbc3e
+- apiVersion: v1
+  data:
+    config_template.yaml: |-
+      log:
+        stdout: true
+        level: "debug,info"
+
+      persistence:
+        defaultStore: default
+        visibilityStore: visibility
+        numHistoryShards: 512
+        datastores:
+          default:
+            sql:
+              pluginName: "postgres12"
+              driverName: "postgres12"
+              databaseName: "temporal"
+              connectAddr: "postgres-postgresql.temporal.svc.cluster.local:5432"
+              connectProtocol: "tcp"
+              user: postgres
+              password: {{ .Env.TEMPORAL_STORE_PASSWORD | quote }}
+              maxConnLifetime: 1h
+              maxConns: 20
+              maxIdleConns: 20
+              secretName: ""
+          visibility:
+            sql:
+              pluginName: "postgres12"
+              driverName: "postgres12"
+              databaseName: "temporal_visibility"
+              connectAddr: "postgres-postgresql.temporal.svc.cluster.local:5432"
+              connectProtocol: "tcp"
+              user: "postgres"
+              password: {{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD  | quote }}
+              maxConnLifetime: 1h
+              maxConns: 20
+              maxIdleConns: 20
+              secretName: ""
+
+      global:
+        membership:
+          name: temporal
+          maxJoinDuration: 30s
+          broadcastAddress: {{ default .Env.POD_IP "0.0.0.0" }}
+
+        pprof:
+          port: 7936
+
+        metrics:
+          tags:
+            type: {{ .Env.SERVICES }}
+          prometheus:
+            timerType: histogram
+            listenAddress: "0.0.0.0:9090"
+
+      services:
+        frontend:
+          rpc:
+            grpcPort: 7233
+            httpPort: 7243
+            membershipPort: 6933
+            bindOnIP: "0.0.0.0"
+
+        history:
+          rpc:
+            grpcPort: 7234
+            membershipPort: 6934
+            bindOnIP: "0.0.0.0"
+
+        matching:
+          rpc:
+            grpcPort: 7235
+            membershipPort: 6935
+            bindOnIP: "0.0.0.0"
+
+        worker:
+          rpc:
+            membershipPort: 6939
+            bindOnIP: "0.0.0.0"
+
+      clusterMetadata:
+        enableGlobalDomain: false
+        failoverVersionIncrement: 10
+        masterClusterName: "active"
+        currentClusterName: "active"
+        clusterInformation:
+          active:
+            enabled: true
+            initialFailoverVersion: 1
+            rpcName: "temporal-frontend"
+            rpcAddress: "127.0.0.1:7233"
+            httpAddress: "127.0.0.1:7243"
+
+      dcRedirectionPolicy:
+        policy: "noop"
+        toDC: ""
+
+      archival:
+        status: "disabled"
+      publicClient:
+        hostPort: "temporal-frontend:7233"
+
+      dynamicConfigClient:
+        filepath: "/etc/temporal/dynamic_config/dynamic_config.yaml"
+        pollInterval: "10s"
+  kind: ConfigMap
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: temporal
+      meta.helm.sh/release-namespace: temporal
+    creationTimestamp: "2025-09-03T05:11:22Z"
+    labels:
+      app.kubernetes.io/instance: temporal
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/part-of: temporal
+      app.kubernetes.io/version: 1.28.1
+      helm.sh/chart: temporal-0.65.0
+    name: temporal-config
+    namespace: temporal
+    resourceVersion: "77766"
+    uid: 3f26a1fc-29d4-4706-8402-d59fee81085c
+- apiVersion: v1
+  data:
+    dynamic_config.yaml: ""
+  kind: ConfigMap
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: temporal
+      meta.helm.sh/release-namespace: temporal
+    creationTimestamp: "2025-09-03T05:11:22Z"
+    labels:
+      app.kubernetes.io/instance: temporal
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/part-of: temporal
+      app.kubernetes.io/version: 1.28.1
+      helm.sh/chart: temporal-0.65.0
+    name: temporal-dynamic-config
+    namespace: temporal
+    resourceVersion: "77765"
+    uid: bb8483ba-1ba7-4350-a229-967b90117c01
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,529 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QLAFS Agent Lineage DAG Contract",
+  "description": "Schema for cryptographically verifiable agent lineage and evolution tracking based on FIG. 3 patent diagram",
+  "version": "1.0.0",
+
+  "definitions": {
+    "AgentLineageDAG": {
+      "type": "object",
+      "required": [
+        "dag_id",
+        "root_agent_id",
+        "nodes",
+        "edges",
+        "mutation_curve",
+        "cryptographic_proof"
+      ],
+      "properties": {
+        "dag_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique DAG identifier"
+        },
+        "root_agent_id": {
+          "type": "string",
+          "description": "Root agent identifier for this lineage tree"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LineageNode"
+          },
+          "minItems": 1,
+          "description": "All nodes in the lineage DAG"
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LineageEdge"
+          },
+          "description": "Directed edges showing evolution relationships"
+        },
+        "mutation_curve": {
+          "$ref": "#/definitions/MutationCurve"
+        },
+        "cryptographic_proof": {
+          "$ref": "#/definitions/LineageProof"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+
+    "LineageNode": {
+      "type": "object",
+      "required": [
+        "node_id",
+        "agent_id",
+        "agent_version",
+        "fingerprint_hash",
+        "node_type",
+        "timestamp"
+      ],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique node identifier"
+        },
+        "agent_id": {
+          "type": "string",
+          "description": "Agent identifier (e.g., 'Agent A', 'Agent B', 'Agent C')"
+        },
+        "agent_version": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+$",
+          "description": "Semantic version (e.g., 'v1.0', 'v2.0', 'v3.0')"
+        },
+        "fingerprint_hash": {
+          "type": "string",
+          "pattern": "^0x[a-fA-F0-9]{4}\\.\\.\\.[a-fA-F0-9]{2}$",
+          "description": "Abbreviated fingerprint hash for display (e.g., '0xAB34...F2')"
+        },
+        "full_fingerprint_hash": {
+          "type": "string",
+          "pattern": "^sha3-256:[a-f0-9]{64}$",
+          "description": "Full SHA3-256 fingerprint hash"
+        },
+        "node_type": {
+          "type": "string",
+          "enum": ["genesis", "evolution", "fork", "merge", "mature"],
+          "description": "Type of lineage node as shown in diagram"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Node creation timestamp (T0, T1, T2, etc.)"
+        },
+        "parent_nodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": "Parent node IDs (empty for genesis, multiple for merge)"
+        },
+        "mutation_delta": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fingerprint delta from parent (0=no change, 1=complete change)"
+        },
+        "position": {
+          "type": "object",
+          "properties": {
+            "x": {"type": "number"},
+            "y": {"type": "number"}
+          },
+          "description": "Visual position in DAG diagram"
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Node description (e.g., 'Genesis', 'Evolution', 'Fork from A2')"
+            },
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "description": "Display color for node type"
+            }
+          }
+        }
+      }
+    },
+
+    "LineageEdge": {
+      "type": "object",
+      "required": [
+        "edge_id",
+        "from_node",
+        "to_node",
+        "relationship_type",
+        "cryptographic_link"
+      ],
+      "properties": {
+        "edge_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "from_node": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Source node ID"
+        },
+        "to_node": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Target node ID"
+        },
+        "relationship_type": {
+          "type": "string",
+          "enum": ["evolution", "fork", "merge"],
+          "description": "Type of relationship as shown in diagram"
+        },
+        "cryptographic_link": {
+          "type": "string",
+          "pattern": "^sha3-256:[a-f0-9]{64}$",
+          "description": "Hash chain linking parent and child fingerprints"
+        },
+        "visual_properties": {
+          "type": "object",
+          "properties": {
+            "stroke_color": {
+              "type": "string",
+              "description": "Edge color (#333 for evolution, #e74c3c for fork, #27ae60 for merge)"
+            },
+            "stroke_style": {
+              "type": "string",
+              "enum": ["solid", "dashed"],
+              "description": "Line style (solid for evolution/merge, dashed for fork)"
+            },
+            "marker_type": {
+              "type": "string",
+              "enum": ["arrowhead", "forkhead", "mergehead"]
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "evolution_reason": {
+              "type": "string",
+              "description": "Reason for the evolution/fork/merge"
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "timestamp": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+
+    "MutationCurve": {
+      "type": "object",
+      "required": [
+        "time_series",
+        "curve_analysis"
+      ],
+      "properties": {
+        "time_series": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["time_point", "delta_value", "event_type", "node_id"],
+            "properties": {
+              "time_point": {
+                "type": "string",
+                "pattern": "^T[0-9]+$",
+                "description": "Time point identifier (T0, T1, T2, T3, T4, etc.)"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Actual timestamp"
+              },
+              "delta_value": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Fingerprint delta magnitude (Y-axis value)"
+              },
+              "event_type": {
+                "type": "string",
+                "enum": ["genesis", "evolution", "fork", "merge"],
+                "description": "Type of mutation event"
+              },
+              "node_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Associated lineage node"
+              },
+              "annotation": {
+                "type": "string",
+                "description": "Display annotation (e.g., 'A v1→v2', 'Fork B1', 'Merge C1')"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "description": "Data point color"
+              }
+            }
+          },
+          "description": "Time series data for mutation curve visualization"
+        },
+        "curve_analysis": {
+          "type": "object",
+          "properties": {
+            "mutation_rate": {
+              "type": "number",
+              "description": "Average mutation rate over time"
+            },
+            "stability_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Agent stability score (low mutation = high stability)"
+            },
+            "evolution_trend": {
+              "type": "string",
+              "enum": ["increasing", "decreasing", "stable", "volatile"],
+              "description": "Overall evolution trend"
+            },
+            "peak_mutations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "time_point": {"type": "string"},
+                  "delta_value": {"type": "number"},
+                  "event_description": {"type": "string"}
+                }
+              },
+              "description": "Significant mutation events"
+            },
+            "curve_smoothness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Smoothness of evolution curve"
+            }
+          }
+        }
+      }
+    },
+
+    "LineageProof": {
+      "type": "object",
+      "required": [
+        "merkle_root",
+        "hash_chain_verification",
+        "cryptographic_properties"
+      ],
+      "properties": {
+        "merkle_root": {
+          "type": "string",
+          "pattern": "^sha3-256:[a-f0-9]{64}$",
+          "description": "Merkle root hash of the entire lineage tree"
+        },
+        "hash_chain_verification": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["node_id", "parent_hash", "node_hash", "chain_hash"],
+            "properties": {
+              "node_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "parent_hash": {
+                "type": "string",
+                "pattern": "^sha3-256:[a-f0-9]{64}$",
+                "description": "Parent node fingerprint hash"
+              },
+              "node_hash": {
+                "type": "string", 
+                "pattern": "^sha3-256:[a-f0-9]{64}$",
+                "description": "Current node fingerprint hash"
+              },
+              "chain_hash": {
+                "type": "string",
+                "pattern": "^sha3-256:[a-f0-9]{64}$",
+                "description": "SHA3-256(parent_hash || node_hash)"
+              },
+              "verification_status": {
+                "type": "boolean",
+                "description": "Whether the hash chain is valid"
+              }
+            }
+          },
+          "description": "Hash chain proofs for each node linkage"
+        },
+        "blockchain_anchor": {
+          "type": "object",
+          "properties": {
+            "chain": {
+              "type": "string",
+              "enum": ["ethereum", "polygon", "avalanche"],
+              "description": "Blockchain used for anchoring"
+            },
+            "block_height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "transaction_hash": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{64}$"
+            },
+            "anchor_timestamp": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "anchor_cost": {
+              "type": "number",
+              "description": "Cost in native token (ETH, MATIC, AVAX)"
+            }
+          }
+        },
+        "cryptographic_properties": {
+          "type": "object",
+          "properties": {
+            "hash_algorithm": {
+              "type": "string",
+              "enum": ["SHA3-256"],
+              "default": "SHA3-256"
+            },
+            "signature_scheme": {
+              "type": "string", 
+              "enum": ["ECDSA", "EdDSA"],
+              "default": "ECDSA"
+            },
+            "merkle_tree_depth": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "total_nodes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "verification_complexity": {
+              "type": "string",
+              "enum": ["O(log n)", "O(n)", "O(n log n)"],
+              "description": "Computational complexity for verification"
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "$ref": "#/definitions/AgentLineageDAG",
+
+  "examples": [
+    {
+      "dag_id": "dag-550e8400-e29b-41d4-a716-446655440000",
+      "root_agent_id": "Agent A",
+      "nodes": [
+        {
+          "node_id": "node-a1",
+          "agent_id": "Agent A",
+          "agent_version": "v1.0",
+          "fingerprint_hash": "0xAB34...F2",
+          "full_fingerprint_hash": "sha3-256:ab34c7d9e1f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2f2",
+          "node_type": "genesis",
+          "timestamp": "2025-01-15T10:00:00Z",
+          "parent_nodes": [],
+          "mutation_delta": 0.0,
+          "position": {"x": 170, "y": 240},
+          "metadata": {
+            "description": "Genesis",
+            "color": "#3498db"
+          }
+        },
+        {
+          "node_id": "node-a2", 
+          "agent_id": "Agent A",
+          "agent_version": "v2.0",
+          "fingerprint_hash": "0xCD56...A8",
+          "full_fingerprint_hash": "sha3-256:cd56e8f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2a8",
+          "node_type": "evolution",
+          "timestamp": "2025-01-15T11:00:00Z",
+          "parent_nodes": ["node-a1"],
+          "mutation_delta": 0.15,
+          "position": {"x": 390, "y": 240},
+          "metadata": {
+            "description": "Evolution", 
+            "color": "#3498db"
+          }
+        },
+        {
+          "node_id": "node-b1",
+          "agent_id": "Agent B", 
+          "agent_version": "v1.0",
+          "fingerprint_hash": "0x1234...C9",
+          "full_fingerprint_hash": "sha3-256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abc9",
+          "node_type": "fork",
+          "timestamp": "2025-01-15T11:30:00Z",
+          "parent_nodes": ["node-a2"],
+          "mutation_delta": 0.45,
+          "position": {"x": 490, "y": 390},
+          "metadata": {
+            "description": "Fork from A2",
+            "color": "#e74c3c"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "edge_id": "edge-a1-a2",
+          "from_node": "node-a1",
+          "to_node": "node-a2", 
+          "relationship_type": "evolution",
+          "cryptographic_link": "sha3-256:evolution_chain_hash_a1_a2",
+          "visual_properties": {
+            "stroke_color": "#333",
+            "stroke_style": "solid",
+            "marker_type": "arrowhead"
+          }
+        },
+        {
+          "edge_id": "edge-a2-b1",
+          "from_node": "node-a2",
+          "to_node": "node-b1",
+          "relationship_type": "fork",
+          "cryptographic_link": "sha3-256:fork_chain_hash_a2_b1", 
+          "visual_properties": {
+            "stroke_color": "#e74c3c",
+            "stroke_style": "dashed", 
+            "marker_type": "forkhead"
+          }
+        }
+      ],
+      "mutation_curve": {
+        "time_series": [
+          {
+            "time_point": "T0",
+            "timestamp": "2025-01-15T10:00:00Z",
+            "delta_value": 0.0,
+            "event_type": "genesis",
+            "node_id": "node-a1",
+            "annotation": "Genesis A1",
+            "color": "#2980b9"
+          },
+          {
+            "time_point": "T1", 
+            "timestamp": "2025-01-15T11:00:00Z",
+            "delta_value": 0.15,
+            "event_type": "evolution",
+            "node_id": "node-a2",
+            "annotation": "A v1→v2",
+            "color": "#2980b9"
+          },
+          {
+            "time_point": "T2",
+            "timestamp": "2025-01-15T11:30:00Z", 
+            "delta_value": 0.45,
+            "event_type": "fork",
+            "node_id": "node-b1",
+            "annotation": "Fork B1",
+            "color": "#e74c3c"
+          }
+        ]
+      }
+    }
+  ]
+}

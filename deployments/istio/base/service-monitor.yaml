@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: qlens-gateway-metrics
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-gateway
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qlens-gateway
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+
+---
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: qlens-router-metrics
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-router
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qlens-router
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+
+---
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: qlens-cache-metrics
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-cache
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qlens-cache
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-llm-providers
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: external
+spec:
+  hosts:
+  - api.openai.com
+  - api.anthropic.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: external-llm-providers-dr
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: external
+spec:
+  hosts:
+  - api.openai.com
+  - api.anthropic.com
+  trafficPolicy:
+    tls:
+      mode: SIMPLE  # Use TLS for external API calls
+    connectionPool:
+      tcp:
+        maxConnections: 50
+        connectTimeout: 30s
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 1
+        maxRetries: 3
+        consecutiveGatewayFailure: 5
+        interval: 30s
+        baseEjectionTime: 30s

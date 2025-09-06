@@ -1,0 +1,185 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: qlens-waf-modsecurity
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: waf
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/name: qlens-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.wasm
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+          config:
+            name: "qlens_waf"
+            root_id: "qlens_waf_root"
+            configuration:
+              "@type": type.googleapis.com/google.protobuf.StringValue
+              value: |
+                {
+                  "rules": [
+                    {
+                      "id": "1001",
+                      "phase": "request_headers",
+                      "rule": "SecRule REQUEST_HEADERS:User-Agent \"@detectSQLi\" \"id:1001,phase:1,deny,status:403,msg:'SQL Injection Attack Detected in User-Agent'\"",
+                      "enabled": true
+                    },
+                    {
+                      "id": "1002", 
+                      "phase": "request_headers",
+                      "rule": "SecRule REQUEST_HEADERS:User-Agent \"@detectXSS\" \"id:1002,phase:1,deny,status:403,msg:'XSS Attack Detected in User-Agent'\"",
+                      "enabled": true
+                    },
+                    {
+                      "id": "1003",
+                      "phase": "request_body",
+                      "rule": "SecRule REQUEST_BODY \"@detectSQLi\" \"id:1003,phase:2,deny,status:403,msg:'SQL Injection Attack Detected in Request Body'\"",
+                      "enabled": true
+                    },
+                    {
+                      "id": "1004",
+                      "phase": "request_body", 
+                      "rule": "SecRule REQUEST_BODY \"@detectXSS\" \"id:1004,phase:2,deny,status:403,msg:'XSS Attack Detected in Request Body'\"",
+                      "enabled": true
+                    },
+                    {
+                      "id": "1005",
+                      "phase": "request_headers",
+                      "rule": "SecRule REQUEST_METHOD \"@streq DELETE\" \"id:1005,phase:1,deny,status:405,msg:'DELETE method not allowed'\"",
+                      "enabled": true
+                    }
+                  ],
+                  "default_action": "allow",
+                  "audit_log": true
+                }
+            vm_config:
+              vm_id: "qlens_waf"
+              runtime: "envoy.wasm.runtime.v8"
+              code:
+                local:
+                  inline_string: |
+                    const RULES = {
+                      SQL_INJECTION: /('|(\\-){2}|;|\||`|\*|%|=)/gi,
+                      XSS: /(<script|javascript:|vbscript:|data:text\/html|on\w+\s*=)/gi,
+                      PATH_TRAVERSAL: /(\.\.\/|\.\.\\|\.\.\%2F|\.\.\%5C)/gi,
+                      COMMAND_INJECTION: /(;|\||`|&|\$\(|\${)/gi
+                    };
+
+                    class QLensWAF {
+                      constructor(rootContext) {
+                        this.rootContext = rootContext;
+                      }
+
+                      onRequestHeaders() {
+                        const userAgent = this.getRequestHeader("user-agent");
+                        const path = this.getRequestHeader(":path");
+                        
+                        // Check User-Agent
+                        if (this.detectThreat(userAgent)) {
+                          this.sendLocalResponse(403, "Request blocked by WAF", [], 0);
+                          return 0; // Stop processing
+                        }
+                        
+                        // Check path traversal
+                        if (RULES.PATH_TRAVERSAL.test(path)) {
+                          this.sendLocalResponse(403, "Path traversal detected", [], 0);
+                          return 0;
+                        }
+                        
+                        return 1; // Continue
+                      }
+
+                      onRequestBody(bodySize, endOfStream) {
+                        if (endOfStream && bodySize > 0) {
+                          const body = this.getRequestBody(0, bodySize);
+                          const bodyStr = String.fromCharCode.apply(null, new Uint8Array(body));
+                          
+                          if (this.detectThreat(bodyStr)) {
+                            this.sendLocalResponse(403, "Request body blocked by WAF", [], 0);
+                            return 0;
+                          }
+                        }
+                        return 1;
+                      }
+
+                      detectThreat(input) {
+                        if (!input) return false;
+                        
+                        return RULES.SQL_INJECTION.test(input) || 
+                               RULES.XSS.test(input) || 
+                               RULES.COMMAND_INJECTION.test(input);
+                      }
+                    }
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: qlens-ddos-protection
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: ddos-protection
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/name: qlens-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.local_ratelimit
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+          value:
+            stat_prefix: ddos_protection
+            token_bucket:
+              max_tokens: 10000
+              tokens_per_fill: 1000
+              fill_interval: 60s
+            filter_enabled:
+              runtime_key: ddos_protection_enabled
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            filter_enforced:
+              runtime_key: ddos_protection_enforced
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            local_rate_limit_per_downstream_connection: false
+            descriptors:
+            - entries:
+              - key: source_ip
+                value: "%{DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT}"
+            response_headers_to_add:
+            - append: false
+              header:
+                key: x-rate-limit-status
+                value: 'enforced'
+            - append: false
+              header:
+                key: retry-after
+                value: '60'

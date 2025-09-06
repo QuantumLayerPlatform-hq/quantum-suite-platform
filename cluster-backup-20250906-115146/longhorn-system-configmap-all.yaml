@@ -1,0 +1,133 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    ca-crl.pem: ""
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2025-09-03T00:52:08Z"
+    labels:
+      istio.io/config: "true"
+    name: istio-ca-crl
+    namespace: longhorn-system
+    resourceVersion: "13506"
+    uid: 13e6e433-f627-489f-a50b-3d09c35fd3c3
+- apiVersion: v1
+  data:
+    root-cert.pem: |
+      -----BEGIN CERTIFICATE-----
+      MIIC/TCCAeWgAwIBAgIRAKj1qPN3do3ENzmMYsrrepAwDQYJKoZIhvcNAQELBQAw
+      GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0yNTA5MDMwMDQwMDJaFw0zNTA5
+      MDEwMDQwMDJaMBgxFjAUBgNVBAoTDWNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3
+      DQEBAQUAA4IBDwAwggEKAoIBAQDASNnK0tf3x5wWEwWuBYOmFQ/VPTewugzJ/EbR
+      3NFVhbjV/9wFAr3mfRkmMZHQuVxtVsUDtKK+UwIu0eOBKU2lC8Gr7agv1iOOkeq/
+      kcZxaigC9ma8JbUBYhBvbpHhd1JNEGNV2RM6HKzvwjxXGXBdskVtRMWJuJB5y9Pf
+      NLJmvLGFVOp+gxSa5Vb3DDcJ+ir4iDvu7wCMCPbT30MMkot4OpUvdnKVdYufWIG1
+      01ZjnOhNldkoxEt1RHzk2HmnKp/24Ye7ImeC+M3fDptRXJclySHVsctDxJKJRLvu
+      edbQdE283U/nnQ7e5f2lZrVX1EG4OG3mySgo8Lxh+iXZ9/bfAgMBAAGjQjBAMA4G
+      A1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBT6xO8FEUel
+      jaUHcSdGcV6xu5JjYjANBgkqhkiG9w0BAQsFAAOCAQEABhu+7t50SQpyDEH2gXIe
+      MU+ykT5ov4IpNYUmirbgwgm/paGBuSka8WADps6WqvIZbiHr138aZY2uQiOhJFFy
+      crTlvklPIshECa2D79jZYQWyfJfCKI2zja1kZvzFOTOpTVEj2ym0eqFVVkvttxzp
+      sl+5vslqDvbp9V1lq2al0w2Dzveu1IObxXtnWzNYZTAv5JS/bkv8Nnko1+3uJxm/
+      r/q2dqW7P/fOyhtshTkw1d+mYFGkpHAxyUUPU5RgBUNEPsTY2dWfFAA0uDRuywv9
+      PR3MyncyODe1753dczkqh3WQ9OQFwFJbQ4xp6CflY/r3VnBOZW4s2rUHuibgH13J
+      hQ==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2025-09-03T00:52:08Z"
+    labels:
+      istio.io/config: "true"
+    name: istio-ca-root-cert
+    namespace: longhorn-system
+    resourceVersion: "13502"
+    uid: f36ad20d-8db7-4cb3-8f10-2bd4bfe4ff39
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBTCCAe2gAwIBAgIIMMYq2AaEuqAwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+      AxMKa3ViZXJuZXRlczAeFw0yNTA5MDIyMzA0MzJaFw0zNTA4MzEyMzA5MzJaMBUx
+      EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+      AoIBAQDQZPTv1qUWMYzMd+82eZZkoQzofbS+FOUCnqcmFmagGMaOuWqHit1NX5KE
+      GjDS0DBI0sTk0GiRPLPsNoehZexKRC0xsN9RVsE2gEj75pT7oLvP1BxbFI9/X5gv
+      wQY8z6IJ3ORA8iND99pL6Re1MATiA7CJW/3kdwZgo93+mhirLRTolvFsg/b7kH1v
+      SJ+GqSQB5Jr5EpGZ1PLoeJuR7pTNEuD74KRSmhu1hM6RubDefS2aG4j1zZILHKDf
+      uzxYHm99XNzkGxeDFd3TLcUyYk7qutfurAapoCXaGuQxdG7wI1IlHx1WRArDCGvB
+      Z+1DyLYlXrJBiCO2P4maMi41BLe3AgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+      BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBStBvTyw8p/O+SZtwZdO4Di7BTSvjAV
+      BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQB8zOG/3K9d
+      nZpNeciU+jxRs8mi2KyNrBN5tVvHzRghPUewIRJuKTe/0o12sGTZwFQNaqu1I+zR
+      uZe4hVB7VljKfXlpTFWv+CQZztOOgodQdkGzHgl1hxEkTCEO9koTqTf32AbUjmCv
+      8Lla3rJh77N1Mh8lIfOWebWM4OhaYRAKo/6/Vmc02JMuR4+x+vblcI6pmTQlHPjl
+      i5m0DvFaRp+xLPDujuAm0lhCejRyXB6Y5BhAGFH3DBUuCCytDcZCyINe1pfz3jux
+      OZz6hTCT2iAR2ceDb0BqVfD5R5GSg7I5xtXHzFhEYdWAObulsLjrcrGjTljVw6Aj
+      pvYaGh0uEzDb
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2025-09-03T00:52:08Z"
+    name: kube-root-ca.crt
+    namespace: longhorn-system
+    resourceVersion: "13503"
+    uid: 07d5ad81-965b-48a0-a544-c23fd4188a82
+- apiVersion: v1
+  data:
+    default-setting.yaml: 'priority-class: longhorn-critical'
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"default-setting.yaml":"priority-class: longhorn-critical"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"app.kubernetes.io/instance":"longhorn","app.kubernetes.io/name":"longhorn","app.kubernetes.io/version":"v1.6.2"},"name":"longhorn-default-setting","namespace":"longhorn-system"}}
+    creationTimestamp: "2025-09-03T00:52:08Z"
+    labels:
+      app.kubernetes.io/instance: longhorn
+      app.kubernetes.io/name: longhorn
+      app.kubernetes.io/version: v1.6.2
+    name: longhorn-default-setting
+    namespace: longhorn-system
+    resourceVersion: "13510"
+    uid: e310e59d-7649-4881-b990-4350e4ab2c1e
+- apiVersion: v1
+  data:
+    storageclass.yaml: |
+      kind: StorageClass
+      apiVersion: storage.k8s.io/v1
+      metadata:
+        name: longhorn
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "true"
+      provisioner: driver.longhorn.io
+      allowVolumeExpansion: true
+      reclaimPolicy: "Delete"
+      volumeBindingMode: Immediate
+      parameters:
+        numberOfReplicas: "3"
+        staleReplicaTimeout: "30"
+        fromBackup: ""
+        fsType: "ext4"
+        dataLocality: "disabled"
+        unmapMarkSnapChainRemoved: "ignored"
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"storageclass.yaml":"kind: StorageClass\napiVersion: storage.k8s.io/v1\nmetadata:\n  name: longhorn\n  annotations:\n    storageclass.kubernetes.io/is-default-class: \"true\"\nprovisioner: driver.longhorn.io\nallowVolumeExpansion: true\nreclaimPolicy: \"Delete\"\nvolumeBindingMode: Immediate\nparameters:\n  numberOfReplicas: \"3\"\n  staleReplicaTimeout: \"30\"\n  fromBackup: \"\"\n  fsType: \"ext4\"\n  dataLocality: \"disabled\"\n  unmapMarkSnapChainRemoved: \"ignored\"\n"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"app.kubernetes.io/instance":"longhorn","app.kubernetes.io/name":"longhorn","app.kubernetes.io/version":"v1.6.2"},"name":"longhorn-storageclass","namespace":"longhorn-system"}}
+    creationTimestamp: "2025-09-03T00:52:08Z"
+    labels:
+      app.kubernetes.io/instance: longhorn
+      app.kubernetes.io/name: longhorn
+      app.kubernetes.io/version: v1.6.2
+    name: longhorn-storageclass
+    namespace: longhorn-system
+    resourceVersion: "13511"
+    uid: 65b40c2f-dcaa-4efd-be29-94916251af31
+kind: List
+metadata:
+  resourceVersion: ""

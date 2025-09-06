@@ -1,0 +1,336 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    LOG_LEVEL: info
+    MAX_AGENTS: "10"
+    MAX_TASKS_PER_AGENT: "5"
+    PORT: "8083"
+    REDIS_URL: redis://redis:6379
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"LOG_LEVEL":"info","MAX_AGENTS":"10","MAX_TASKS_PER_AGENT":"5","PORT":"8083","REDIS_URL":"redis://redis:6379"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"agent-orchestrator-config","namespace":"quantumlayer"}}
+    creationTimestamp: "2025-09-03T02:15:44Z"
+    name: agent-orchestrator-config
+    namespace: quantumlayer
+    resourceVersion: "33623"
+    uid: 842f10ed-1062-4740-a9bd-f22a9a856b51
+- apiVersion: v1
+  data:
+    ca-crl.pem: ""
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2025-09-03T00:41:56Z"
+    labels:
+      istio.io/config: "true"
+    name: istio-ca-crl
+    namespace: quantumlayer
+    resourceVersion: "10257"
+    uid: 108701f0-60b3-44b5-9316-1a78d867c01a
+- apiVersion: v1
+  data:
+    root-cert.pem: |
+      -----BEGIN CERTIFICATE-----
+      MIIC/TCCAeWgAwIBAgIRAKj1qPN3do3ENzmMYsrrepAwDQYJKoZIhvcNAQELBQAw
+      GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0yNTA5MDMwMDQwMDJaFw0zNTA5
+      MDEwMDQwMDJaMBgxFjAUBgNVBAoTDWNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3
+      DQEBAQUAA4IBDwAwggEKAoIBAQDASNnK0tf3x5wWEwWuBYOmFQ/VPTewugzJ/EbR
+      3NFVhbjV/9wFAr3mfRkmMZHQuVxtVsUDtKK+UwIu0eOBKU2lC8Gr7agv1iOOkeq/
+      kcZxaigC9ma8JbUBYhBvbpHhd1JNEGNV2RM6HKzvwjxXGXBdskVtRMWJuJB5y9Pf
+      NLJmvLGFVOp+gxSa5Vb3DDcJ+ir4iDvu7wCMCPbT30MMkot4OpUvdnKVdYufWIG1
+      01ZjnOhNldkoxEt1RHzk2HmnKp/24Ye7ImeC+M3fDptRXJclySHVsctDxJKJRLvu
+      edbQdE283U/nnQ7e5f2lZrVX1EG4OG3mySgo8Lxh+iXZ9/bfAgMBAAGjQjBAMA4G
+      A1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBT6xO8FEUel
+      jaUHcSdGcV6xu5JjYjANBgkqhkiG9w0BAQsFAAOCAQEABhu+7t50SQpyDEH2gXIe
+      MU+ykT5ov4IpNYUmirbgwgm/paGBuSka8WADps6WqvIZbiHr138aZY2uQiOhJFFy
+      crTlvklPIshECa2D79jZYQWyfJfCKI2zja1kZvzFOTOpTVEj2ym0eqFVVkvttxzp
+      sl+5vslqDvbp9V1lq2al0w2Dzveu1IObxXtnWzNYZTAv5JS/bkv8Nnko1+3uJxm/
+      r/q2dqW7P/fOyhtshTkw1d+mYFGkpHAxyUUPU5RgBUNEPsTY2dWfFAA0uDRuywv9
+      PR3MyncyODe1753dczkqh3WQ9OQFwFJbQ4xp6CflY/r3VnBOZW4s2rUHuibgH13J
+      hQ==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2025-09-03T00:41:56Z"
+    labels:
+      istio.io/config: "true"
+    name: istio-ca-root-cert
+    namespace: quantumlayer
+    resourceVersion: "10255"
+    uid: 487489ad-b9a8-474d-9b7c-8569db4c565c
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBTCCAe2gAwIBAgIIMMYq2AaEuqAwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+      AxMKa3ViZXJuZXRlczAeFw0yNTA5MDIyMzA0MzJaFw0zNTA4MzEyMzA5MzJaMBUx
+      EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+      AoIBAQDQZPTv1qUWMYzMd+82eZZkoQzofbS+FOUCnqcmFmagGMaOuWqHit1NX5KE
+      GjDS0DBI0sTk0GiRPLPsNoehZexKRC0xsN9RVsE2gEj75pT7oLvP1BxbFI9/X5gv
+      wQY8z6IJ3ORA8iND99pL6Re1MATiA7CJW/3kdwZgo93+mhirLRTolvFsg/b7kH1v
+      SJ+GqSQB5Jr5EpGZ1PLoeJuR7pTNEuD74KRSmhu1hM6RubDefS2aG4j1zZILHKDf
+      uzxYHm99XNzkGxeDFd3TLcUyYk7qutfurAapoCXaGuQxdG7wI1IlHx1WRArDCGvB
+      Z+1DyLYlXrJBiCO2P4maMi41BLe3AgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+      BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBStBvTyw8p/O+SZtwZdO4Di7BTSvjAV
+      BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQB8zOG/3K9d
+      nZpNeciU+jxRs8mi2KyNrBN5tVvHzRghPUewIRJuKTe/0o12sGTZwFQNaqu1I+zR
+      uZe4hVB7VljKfXlpTFWv+CQZztOOgodQdkGzHgl1hxEkTCEO9koTqTf32AbUjmCv
+      8Lla3rJh77N1Mh8lIfOWebWM4OhaYRAKo/6/Vmc02JMuR4+x+vblcI6pmTQlHPjl
+      i5m0DvFaRp+xLPDujuAm0lhCejRyXB6Y5BhAGFH3DBUuCCytDcZCyINe1pfz3jux
+      OZz6hTCT2iAR2ceDb0BqVfD5R5GSg7I5xtXHzFhEYdWAObulsLjrcrGjTljVw6Aj
+      pvYaGh0uEzDb
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2025-09-03T00:41:56Z"
+    name: kube-root-ca.crt
+    namespace: quantumlayer
+    resourceVersion: "10256"
+    uid: 92fcc9a6-a077-4172-bf31-2d6d3d7f6101
+- apiVersion: v1
+  data:
+    ENABLED_PROVIDERS: azure,groq,openai,anthropic,bedrock
+    FALLBACK_PROVIDERS: groq,openai,anthropic,bedrock
+    MAX_RETRIES: "3"
+    PRIMARY_PROVIDER: azure
+    REQUEST_TIMEOUT: 30s
+    config.yaml: "server:\n  port: 8080\n  metrics_port: 9090\n  health_port: 8081\n
+      \ request_timeout: 30s\n  shutdown_timeout: 10s\n  \nproviders:\n  azure:\n
+      \   enabled: true\n    priority: 1\n    timeout: 30s\n    rateLimit: 100\n    burstLimit:
+      200\n    circuitBreaker:\n      maxRequests: 3\n      interval: 10s\n      timeout:
+      60s\n      failureRatio: 0.6\n    retry:\n      maxAttempts: 3\n      initialInterval:
+      1s\n      maxInterval: 10s\n      multiplier: 2\n      \n  openai:\n    enabled:
+      true\n    priority: 2\n    endpoint: https://api.openai.com/v1\n    timeout:
+      30s\n    rateLimit: 50\n    burstLimit: 100\n    models:\n      - gpt-4-turbo-preview\n
+      \     - gpt-4\n      - gpt-3.5-turbo\n      \n  anthropic:\n    enabled: true\n
+      \   priority: 3\n    endpoint: https://api.anthropic.com\n    timeout: 30s\n
+      \   rateLimit: 30\n    burstLimit: 60\n    models:\n      - claude-3-opus-20240229\n
+      \     - claude-3-sonnet-20240229\n      - claude-3-haiku-20240307\n      \n
+      \ groq:\n    enabled: true\n    priority: 4\n    endpoint: https://api.groq.com/openai/v1\n
+      \   timeout: 20s\n    rateLimit: 30\n    burstLimit: 50\n    models:\n      -
+      mixtral-8x7b-32768\n      - llama3-70b-8192\n      - llama3-8b-8192\n      \n
+      \ bedrock:\n    enabled: true\n    priority: 5\n    timeout: 30s\n    rateLimit:
+      50\n    burstLimit: 100\n    models:\n      - anthropic.claude-3-opus-20240229\n
+      \     - anthropic.claude-3-sonnet-20240229\n      - anthropic.claude-3-haiku-20240307\n
+      \     - amazon.titan-text-express-v1\n      \nrouting:\n  strategy: \"priority-with-fallback\"
+      \ # priority-with-fallback, round-robin, least-latency, cost-optimized\n  healthCheck:\n
+      \   enabled: true\n    interval: 60s\n    timeout: 10s\n  fallback:\n    enabled:
+      true\n    maxAttempts: 3\n  \ncodeGeneration:\n  defaultMaxTokens: 2000\n  defaultTemperature:
+      0.7\n  validation:\n    minLength: 30\n    maxLength: 50000\n    requireCodePatterns:
+      true\n    rejectConversational: true\n  systemPrompts:\n    default: |\n      You
+      are an expert software engineer and code generator.\n      Generate production-ready,
+      well-structured code following best practices.\n      IMPORTANT: Return ONLY
+      code without any explanations, markdown formatting, or conversational text.\n
+      \     Do not include code block markers (```) or language tags.\n      Generate
+      pure, executable code only.\n    enhanced: |\n      You are an enterprise code
+      generation system.\n      Requirements:\n      - Generate complete, production-ready
+      code\n      - Include all necessary imports and dependencies\n      - Follow
+      language-specific best practices and idioms\n      - Implement proper error
+      handling\n      - Use meaningful variable and function names\n      - Add minimal
+      but essential comments for complex logic\n      - Ensure code is secure and
+      performant\n      OUTPUT: Pure code only, no explanations or formatting.\n      \ncache:\n
+      \ enabled: true\n  backend: \"redis\"\n  ttl: 3600\n  maxSize: 1000\n  keyPrefix:
+      \"llm:cache:\"\n  \nsecurity:\n  apiKeyHeader: \"X-API-Key\"\n  enableRateLimiting:
+      true\n  enableIPWhitelist: false\n  ipWhitelist: []\n  maxRequestSize: \"10MB\"\n
+      \ \nobservability:\n  metrics:\n    enabled: true\n    prometheusPath: \"/metrics\"\n
+      \ tracing:\n    enabled: true\n    jaegerEndpoint: \"jaeger-collector.istio-system.svc.cluster.local:14268\"\n
+      \   samplingRate: 0.1\n  logging:\n    level: \"info\"\n    format: \"json\"\n
+      \   output: \"stdout\"\n    \nperformance:\n  connectionPool:\n    maxIdleConns:
+      100\n    maxIdleConnsPerHost: 10\n    idleConnTimeout: 90s\n  compression:\n
+      \   enabled: true\n    level: 5\n"
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"ENABLED_PROVIDERS":"azure,groq,openai,anthropic,bedrock","FALLBACK_PROVIDERS":"groq,openai,anthropic,bedrock","MAX_RETRIES":"3","PRIMARY_PROVIDER":"azure","REQUEST_TIMEOUT":"30s","config.yaml":"server:\n  port: 8080\n  metrics_port: 9090\n  health_port: 8081\n  request_timeout: 30s\n  shutdown_timeout: 10s\n  \nproviders:\n  azure:\n    enabled: true\n    priority: 1\n    timeout: 30s\n    rateLimit: 100\n    burstLimit: 200\n    circuitBreaker:\n      maxRequests: 3\n      interval: 10s\n      timeout: 60s\n      failureRatio: 0.6\n    retry:\n      maxAttempts: 3\n      initialInterval: 1s\n      maxInterval: 10s\n      multiplier: 2\n      \n  openai:\n    enabled: true\n    priority: 2\n    endpoint: https://api.openai.com/v1\n    timeout: 30s\n    rateLimit: 50\n    burstLimit: 100\n    models:\n      - gpt-4-turbo-preview\n      - gpt-4\n      - gpt-3.5-turbo\n      \n  anthropic:\n    enabled: true\n    priority: 3\n    endpoint: https://api.anthropic.com\n    timeout: 30s\n    rateLimit: 30\n    burstLimit: 60\n    models:\n      - claude-3-opus-20240229\n      - claude-3-sonnet-20240229\n      - claude-3-haiku-20240307\n      \n  groq:\n    enabled: true\n    priority: 4\n    endpoint: https://api.groq.com/openai/v1\n    timeout: 20s\n    rateLimit: 30\n    burstLimit: 50\n    models:\n      - mixtral-8x7b-32768\n      - llama3-70b-8192\n      - llama3-8b-8192\n      \n  bedrock:\n    enabled: true\n    priority: 5\n    timeout: 30s\n    rateLimit: 50\n    burstLimit: 100\n    models:\n      - anthropic.claude-3-opus-20240229\n      - anthropic.claude-3-sonnet-20240229\n      - anthropic.claude-3-haiku-20240307\n      - amazon.titan-text-express-v1\n      \nrouting:\n  strategy: \"priority-with-fallback\"  # priority-with-fallback, round-robin, least-latency, cost-optimized\n  healthCheck:\n    enabled: true\n    interval: 60s\n    timeout: 10s\n  fallback:\n    enabled: true\n    maxAttempts: 3\n  \ncodeGeneration:\n  defaultMaxTokens: 2000\n  defaultTemperature: 0.7\n  validation:\n    minLength: 30\n    maxLength: 50000\n    requireCodePatterns: true\n    rejectConversational: true\n  systemPrompts:\n    default: |\n      You are an expert software engineer and code generator.\n      Generate production-ready, well-structured code following best practices.\n      IMPORTANT: Return ONLY code without any explanations, markdown formatting, or conversational text.\n      Do not include code block markers (```) or language tags.\n      Generate pure, executable code only.\n    enhanced: |\n      You are an enterprise code generation system.\n      Requirements:\n      - Generate complete, production-ready code\n      - Include all necessary imports and dependencies\n      - Follow language-specific best practices and idioms\n      - Implement proper error handling\n      - Use meaningful variable and function names\n      - Add minimal but essential comments for complex logic\n      - Ensure code is secure and performant\n      OUTPUT: Pure code only, no explanations or formatting.\n      \ncache:\n  enabled: true\n  backend: \"redis\"\n  ttl: 3600\n  maxSize: 1000\n  keyPrefix: \"llm:cache:\"\n  \nsecurity:\n  apiKeyHeader: \"X-API-Key\"\n  enableRateLimiting: true\n  enableIPWhitelist: false\n  ipWhitelist: []\n  maxRequestSize: \"10MB\"\n  \nobservability:\n  metrics:\n    enabled: true\n    prometheusPath: \"/metrics\"\n  tracing:\n    enabled: true\n    jaegerEndpoint: \"jaeger-collector.istio-system.svc.cluster.local:14268\"\n    samplingRate: 0.1\n  logging:\n    level: \"info\"\n    format: \"json\"\n    output: \"stdout\"\n    \nperformance:\n  connectionPool:\n    maxIdleConns: 100\n    maxIdleConnsPerHost: 10\n    idleConnTimeout: 90s\n  compression:\n    enabled: true\n    level: 5\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"llm-router-config","namespace":"quantumlayer"}}
+    creationTimestamp: "2025-09-03T02:19:06Z"
+    name: llm-router-config
+    namespace: quantumlayer
+    resourceVersion: "970267"
+    uid: bf1a7e0a-dcb5-449f-8718-8c25c4a1c464
+- apiVersion: v1
+  data:
+    LOG_LEVEL: info
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger-collector.istio-system:4317
+    PORT: "8080"
+    POSTGRES_DB: quantumlayer
+    POSTGRES_HOST: postgres-rw
+    POSTGRES_PORT: "5432"
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"LOG_LEVEL":"info","OTEL_EXPORTER_OTLP_ENDPOINT":"http://jaeger-collector.istio-system:4317","PORT":"8080","POSTGRES_DB":"quantumlayer","POSTGRES_HOST":"postgres-rw","POSTGRES_PORT":"5432","REDIS_HOST":"redis","REDIS_PORT":"6379"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"meta-prompt-engine-config","namespace":"quantumlayer"}}
+    creationTimestamp: "2025-09-03T02:14:54Z"
+    name: meta-prompt-engine-config
+    namespace: quantumlayer
+    resourceVersion: "33298"
+    uid: c3856872-9c1a-4d42-9ce5-78f9b776ea23
+- apiVersion: v1
+  data:
+    CACHE_TTL: "3600"
+    LOG_LEVEL: info
+    MAX_FILE_SIZE: "10485760"
+    PORT: "8082"
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"CACHE_TTL":"3600","LOG_LEVEL":"info","MAX_FILE_SIZE":"10485760","PORT":"8082"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"parser-config","namespace":"quantumlayer"}}
+    creationTimestamp: "2025-09-03T02:19:36Z"
+    name: parser-config
+    namespace: quantumlayer
+    resourceVersion: "34750"
+    uid: 3480ec6c-6d64-405a-a6eb-d6f0c4db07c6
+- apiVersion: v1
+  data:
+    pgbouncer.ini: |
+      [databases]
+      quantumlayer = host=postgres-cluster-rw.quantumlayer.svc.cluster.local port=5432 dbname=quantumlayer
+      keycloak = host=postgres-cluster-rw.quantumlayer.svc.cluster.local port=5432 dbname=keycloak
+      temporal = host=postgres-cluster-rw.quantumlayer.svc.cluster.local port=5432 dbname=temporal
+      mlflow = host=postgres-cluster-rw.quantumlayer.svc.cluster.local port=5432 dbname=mlflow
+
+      [pgbouncer]
+      listen_addr = 0.0.0.0
+      listen_port = 5432
+      auth_type = md5
+      auth_file = /etc/pgbouncer/userlist.txt
+      pool_mode = transaction
+      max_client_conn = 1000
+      default_pool_size = 25
+      min_pool_size = 5
+      reserve_pool_size = 5
+      max_db_connections = 100
+      max_user_connections = 100
+      server_lifetime = 3600
+      server_idle_timeout = 600
+      server_connect_timeout = 15
+      query_timeout = 0
+      query_wait_timeout = 120
+      client_idle_timeout = 0
+      client_login_timeout = 60
+      stats_period = 60
+      log_connections = 1
+      log_disconnections = 1
+      log_pooler_errors = 1
+    userlist.txt: |
+      "qlayer" "md5a9f3e8c2b5d4f6e7a8b9c0d1e2f3a4b5"
+      "postgres" "md5b8e7f6d5c4a3b2a1f9e8d7c6b5a4f3e2"
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"pgbouncer.ini":"[databases]\nquantumlayer = host=postgres-cluster-rw.quantumlayer.svc.cluster.local port=5432 dbname=quantumlayer\nkeycloak = host=postgres-cluster-rw.quantumlayer.svc.cluster.local port=5432 dbname=keycloak\ntemporal = host=postgres-cluster-rw.quantumlayer.svc.cluster.local port=5432 dbname=temporal\nmlflow = host=postgres-cluster-rw.quantumlayer.svc.cluster.local port=5432 dbname=mlflow\n\n[pgbouncer]\nlisten_addr = 0.0.0.0\nlisten_port = 5432\nauth_type = md5\nauth_file = /etc/pgbouncer/userlist.txt\npool_mode = transaction\nmax_client_conn = 1000\ndefault_pool_size = 25\nmin_pool_size = 5\nreserve_pool_size = 5\nmax_db_connections = 100\nmax_user_connections = 100\nserver_lifetime = 3600\nserver_idle_timeout = 600\nserver_connect_timeout = 15\nquery_timeout = 0\nquery_wait_timeout = 120\nclient_idle_timeout = 0\nclient_login_timeout = 60\nstats_period = 60\nlog_connections = 1\nlog_disconnections = 1\nlog_pooler_errors = 1\n","userlist.txt":"\"qlayer\" \"md5a9f3e8c2b5d4f6e7a8b9c0d1e2f3a4b5\"\n\"postgres\" \"md5b8e7f6d5c4a3b2a1f9e8d7c6b5a4f3e2\"\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"pgbouncer-config","namespace":"quantumlayer"}}
+    creationTimestamp: "2025-09-03T00:46:40Z"
+    name: pgbouncer-config
+    namespace: quantumlayer
+    resourceVersion: "12249"
+    uid: 24be0151-4598-4bdc-b6f2-99957545380b
+- apiVersion: v1
+  data:
+    init-databases.sql: |
+      CREATE DATABASE keycloak;
+      CREATE DATABASE temporal;
+      CREATE DATABASE temporal_visibility;
+      CREATE DATABASE mlflow;
+      GRANT ALL PRIVILEGES ON DATABASE keycloak TO qlayer;
+      GRANT ALL PRIVILEGES ON DATABASE temporal TO qlayer;
+      GRANT ALL PRIVILEGES ON DATABASE temporal_visibility TO qlayer;
+      GRANT ALL PRIVILEGES ON DATABASE mlflow TO qlayer;
+  kind: ConfigMap
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: postgres
+      meta.helm.sh/release-namespace: quantumlayer
+    creationTimestamp: "2025-09-03T04:38:34Z"
+    labels:
+      app.kubernetes.io/instance: postgres
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/version: 17.6.0
+      helm.sh/chart: postgresql-16.7.27
+    name: postgres-postgresql-init-scripts
+    namespace: quantumlayer
+    resourceVersion: "68140"
+    uid: f3feaefe-8069-403d-9ca1-c36d69483aef
+- apiVersion: v1
+  data:
+    config.yaml: "service:\n  http_port: 6333\n  grpc_port: 6334\n  host: 0.0.0.0\n\nstorage:\n
+      \ storage_path: /qdrant/storage\n  snapshots_path: /qdrant/snapshots\n  on_disk_payload:
+      true\n  \ntelemetry:\n  telemetry_disabled: false\n  anonymized_telemetry: true\n
+      \ \nperformance:\n  max_search_threads: 0  # Auto-detect\n  max_optimization_threads:
+      1\n  \nwal:\n  wal_capacity_mb: 32\n  wal_segments_ahead: 0\n  \nconsensus:\n
+      \ tick_period_ms: 100\n  \ncluster:\n  enabled: false  # Enable for HA setup
+      later\n"
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"config.yaml":"service:\n  http_port: 6333\n  grpc_port: 6334\n  host: 0.0.0.0\n\nstorage:\n  storage_path: /qdrant/storage\n  snapshots_path: /qdrant/snapshots\n  on_disk_payload: true\n  \ntelemetry:\n  telemetry_disabled: false\n  anonymized_telemetry: true\n  \nperformance:\n  max_search_threads: 0  # Auto-detect\n  max_optimization_threads: 1\n  \nwal:\n  wal_capacity_mb: 32\n  wal_segments_ahead: 0\n  \nconsensus:\n  tick_period_ms: 100\n  \ncluster:\n  enabled: false  # Enable for HA setup later\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"qdrant-config","namespace":"quantumlayer"}}
+    creationTimestamp: "2025-09-03T00:47:10Z"
+    name: qdrant-config
+    namespace: quantumlayer
+    resourceVersion: "12479"
+    uid: 2d942fec-d61a-4b07-a8f1-5152c2c76350
+- apiVersion: v1
+  data:
+    init.sql: |
+      -- Create quantumdrops database if it doesn't exist
+      SELECT 'CREATE DATABASE quantumdrops'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'quantumdrops')\gexec
+
+      -- Grant privileges
+      GRANT ALL PRIVILEGES ON DATABASE quantumdrops TO quantumlayer;
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"init.sql":"-- Create quantumdrops database if it doesn't exist\nSELECT 'CREATE DATABASE quantumdrops'\nWHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'quantumdrops')\\gexec\n\n-- Grant privileges\nGRANT ALL PRIVILEGES ON DATABASE quantumdrops TO quantumlayer;\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"quantum-drops-init-sql","namespace":"quantumlayer"}}
+    creationTimestamp: "2025-09-03T13:05:59Z"
+    name: quantum-drops-init-sql
+    namespace: quantumlayer
+    resourceVersion: "188151"
+    uid: 1092e609-5132-42ac-9d39-249c8177b14f
+- apiVersion: v1
+  data:
+    config.yaml: |
+      domain: quantumlayer-ratelimit
+      descriptors:
+        - key: PATH
+          value: "/api/v1/generate"
+          rate_limit:
+            unit: minute
+            requests_per_unit: 10
+        - key: PATH
+          value: "/api/v1/llm"
+          rate_limit:
+            unit: second
+            requests_per_unit: 50
+        - key: HEADER
+          match: x-api-key
+          rate_limit:
+            unit: hour
+            requests_per_unit: 1000
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"config.yaml":"domain: quantumlayer-ratelimit\ndescriptors:\n  - key: PATH\n    value: \"/api/v1/generate\"\n    rate_limit:\n      unit: minute\n      requests_per_unit: 10\n  - key: PATH\n    value: \"/api/v1/llm\"\n    rate_limit:\n      unit: second\n      requests_per_unit: 50\n  - key: HEADER\n    match: x-api-key\n    rate_limit:\n      unit: hour\n      requests_per_unit: 1000\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"ratelimit-config","namespace":"quantumlayer"}}
+    creationTimestamp: "2025-09-03T00:46:56Z"
+    name: ratelimit-config
+    namespace: quantumlayer
+    resourceVersion: "12414"
+    uid: 6ba84879-9d30-4c69-88de-7f7226450051
+kind: List
+metadata:
+  resourceVersion: ""

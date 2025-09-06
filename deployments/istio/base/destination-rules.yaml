@@ -1,0 +1,122 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: qlens-gateway-dr
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-gateway
+    app.kubernetes.io/component: gateway
+spec:
+  host: qlens-gateway.quantum-system.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN  # Better for HTTP services
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 10s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 2
+        maxRetries: 3
+        consecutiveGatewayFailure: 5
+        interval: 30s
+        baseEjectionTime: 30s
+    circuitBreaker:
+      consecutiveGatewayFailures: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+  subsets:
+  - name: v1
+    labels:
+      version: v1.0.0
+    trafficPolicy:
+      portLevelSettings:
+      - port:
+          number: 8105
+        loadBalancer:
+          simple: ROUND_ROBIN
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: qlens-router-dr
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-router
+    app.kubernetes.io/component: router
+spec:
+  host: qlens-router.quantum-system.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 50
+        connectTimeout: 10s
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 200
+        maxRequestsPerConnection: 5
+        maxRetries: 2
+        consecutiveGatewayFailure: 3
+        interval: 30s
+        baseEjectionTime: 30s
+    circuitBreaker:
+      consecutiveGatewayFailures: 3
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 30
+      minHealthPercent: 50
+    outlierDetection:
+      consecutiveGatewayFailures: 3
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 30
+      minHealthPercent: 50
+  subsets:
+  - name: v1
+    labels:
+      version: v1.0.0
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: qlens-cache-dr
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-cache
+    app.kubernetes.io/component: cache
+spec:
+  host: qlens-cache.quantum-system.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN  # Better for cache operations
+    connectionPool:
+      tcp:
+        maxConnections: 20
+        connectTimeout: 5s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 1  # Don't retry cache operations
+        consecutiveGatewayFailure: 2
+        interval: 15s
+        baseEjectionTime: 15s
+    circuitBreaker:
+      consecutiveGatewayFailures: 2
+      interval: 15s
+      baseEjectionTime: 15s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+  subsets:
+  - name: v1
+    labels:
+      version: v1.0.0

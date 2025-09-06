@@ -1,0 +1,104 @@
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: qlens-metrics
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: telemetry
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: ALL_METRICS
+      tagOverrides:
+        tenant_id:
+          operation: UPSERT
+          value: "%{REQUEST_HEADER('x-tenant-id'):'-'}"
+        user_id:
+          operation: UPSERT
+          value: "%{REQUEST_HEADER('x-user-id'):'-'}"
+        model:
+          operation: UPSERT
+          value: "%{REQUEST_HEADER('x-model'):'-'}"
+        provider:
+          operation: UPSERT
+          value: "%{REQUEST_HEADER('x-provider'):'-'}"
+        request_type:
+          operation: UPSERT
+          value: "%{REQUEST_HEADER('x-request-type'):'-'}"
+
+---
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: qlens-tracing
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: telemetry
+spec:
+  tracing:
+  - providers:
+    - name: jaeger
+  - customTags:
+      tenant_id:
+        header:
+          name: x-tenant-id
+          defaultValue: "unknown"
+      user_id:
+        header:
+          name: x-user-id
+          defaultValue: "unknown"
+      model:
+        header:
+          name: x-model
+          defaultValue: "unknown"
+      provider:
+        header:
+          name: x-provider
+          defaultValue: "unknown"
+      correlation_id:
+        header:
+          name: x-correlation-id
+          defaultValue: "unknown"
+
+---
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: qlens-access-logs
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: telemetry
+spec:
+  accessLogging:
+  - providers:
+    - name: otel
+  - format: |
+      {
+        "timestamp": "%START_TIME%",
+        "method": "%REQ(:METHOD)%",
+        "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+        "protocol": "%PROTOCOL%",
+        "response_code": "%RESPONSE_CODE%",
+        "response_flags": "%RESPONSE_FLAGS%",
+        "bytes_received": "%BYTES_RECEIVED%",
+        "bytes_sent": "%BYTES_SENT%",
+        "duration": "%DURATION%",
+        "upstream_service_time": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+        "x_forwarded_for": "%REQ(X-FORWARDED-FOR)%",
+        "user_agent": "%REQ(USER-AGENT)%",
+        "request_id": "%REQ(X-REQUEST-ID)%",
+        "authority": "%REQ(:AUTHORITY)%",
+        "upstream_host": "%UPSTREAM_HOST%",
+        "tenant_id": "%REQ(X-TENANT-ID)%",
+        "user_id": "%REQ(X-USER-ID)%",
+        "correlation_id": "%REQ(X-CORRELATION-ID)%",
+        "model": "%REQ(X-MODEL)%",
+        "provider": "%REQ(X-PROVIDER)%",
+        "request_type": "%REQ(X-REQUEST-TYPE)%"
+      }

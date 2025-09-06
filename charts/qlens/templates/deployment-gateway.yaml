@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "qlens.fullname" . }}-gateway
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "qlens.gateway.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.gateway }}
+  selector:
+    matchLabels:
+      {{- include "qlens.gateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "qlens.gateway.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "qlens.serviceAccountName" . }}
+      {{- include "qlens.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: gateway
+          {{- include "qlens.securityContext" . | nindent 10 }}
+          image: {{ include "qlens.componentImage" (dict "Values" .Values "component" "gateway") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.ports.gateway }}
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          env:
+            {{- include "qlens.commonEnv" . | nindent 12 }}
+            {{- include "qlens.providerEnv" . | nindent 12 }}
+            {{- include "qlens.costControlEnv" . | nindent 12 }}
+            - name: SERVICE_NAME
+              value: "qlens-gateway"
+            - name: PORT
+              value: {{ .Values.service.ports.gateway | quote }}
+            - name: ROUTER_SERVICE_URL
+              value: "http://{{ include "qlens.fullname" . }}-router:{{ .Values.service.ports.router }}"
+            - name: CACHE_SERVICE_URL
+              value: "http://{{ include "qlens.fullname" . }}-cache:{{ .Values.service.ports.cache }}"
+          envFrom:
+            - configMapRef:
+                name: {{ include "qlens.fullname" . }}-config
+          {{- if .Values.healthChecks.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: {{ .Values.healthChecks.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthChecks.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthChecks.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthChecks.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.healthChecks.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: {{ .Values.healthChecks.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthChecks.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthChecks.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthChecks.readiness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources.gateway | nindent 12 }}
+          volumeMounts:
+            {{- include "qlens.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "qlens.volumes" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

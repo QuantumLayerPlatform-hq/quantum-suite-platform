@@ -1,0 +1,510 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QLAFS Intent Verification System",
+  "description": "Revolutionary intent verification engine that validates agent behavior against stated objectives",
+  "version": "1.0.0",
+
+  "definitions": {
+    "IntentVerificationRequest": {
+      "type": "object",
+      "required": [
+        "agent_id",
+        "task_id",
+        "stated_intent",
+        "execution_trace"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "description": "AI agent identifier"
+        },
+        "task_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Specific task being verified"
+        },
+        "stated_intent": {
+          "$ref": "#/definitions/AgentIntent"
+        },
+        "execution_trace": {
+          "$ref": "#/definitions/ExecutionTrace"
+        },
+        "context": {
+          "type": "object",
+          "description": "Additional context for verification"
+        }
+      }
+    },
+
+    "AgentIntent": {
+      "type": "object",
+      "required": [
+        "declared_objective",
+        "expected_outcomes",
+        "constraints"
+      ],
+      "properties": {
+        "declared_objective": {
+          "type": "string",
+          "description": "What the agent claims it will do"
+        },
+        "expected_outcomes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "outcome_type": {
+                "type": "string",
+                "enum": ["create", "modify", "delete", "read", "execute", "communicate"]
+              },
+              "target_resource": {
+                "type": "string",
+                "description": "What will be affected"
+              },
+              "expected_result": {
+                "type": "string",
+                "description": "Expected outcome"
+              }
+            }
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Self-imposed limitations"
+        },
+        "success_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "How success will be measured"
+        },
+        "risk_assessment": {
+          "type": "object",
+          "properties": {
+            "risk_level": {
+              "type": "string",
+              "enum": ["low", "medium", "high", "critical"]
+            },
+            "potential_harm": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mitigation_strategies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "ExecutionTrace": {
+      "type": "object",
+      "required": [
+        "trace_id",
+        "actions",
+        "decisions",
+        "resource_accesses"
+      ],
+      "properties": {
+        "trace_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentAction"
+          },
+          "description": "Actual actions performed by agent"
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentDecision"
+          },
+          "description": "Decision points and reasoning"
+        },
+        "resource_accesses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceAccess"
+          },
+          "description": "All resources accessed during execution"
+        },
+        "side_effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "effect_type": {"type": "string"},
+              "affected_resource": {"type": "string"},
+              "impact_level": {"type": "string", "enum": ["minimal", "moderate", "significant", "severe"]}
+            }
+          },
+          "description": "Unintended consequences"
+        }
+      }
+    },
+
+    "AgentAction": {
+      "type": "object",
+      "required": [
+        "action_id",
+        "action_type",
+        "timestamp",
+        "target",
+        "parameters"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "action_type": {
+          "type": "string",
+          "enum": [
+            "api_call", "file_operation", "database_query", 
+            "network_request", "system_command", "user_interaction"
+          ]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "target": {
+          "type": "string",
+          "description": "What was acted upon"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Action parameters"
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "success": {"type": "boolean"},
+            "output": {"type": "object"},
+            "error": {"type": "string"}
+          }
+        },
+        "intent_alignment": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How well this action aligns with stated intent"
+        }
+      }
+    },
+
+    "AgentDecision": {
+      "type": "object",
+      "required": [
+        "decision_id",
+        "decision_point",
+        "available_options",
+        "chosen_option",
+        "reasoning"
+      ],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "decision_point": {
+          "type": "string",
+          "description": "What decision was being made"
+        },
+        "available_options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "option": {"type": "string"},
+              "risk_level": {"type": "string"},
+              "expected_outcome": {"type": "string"}
+            }
+          }
+        },
+        "chosen_option": {
+          "type": "string",
+          "description": "Selected option"
+        },
+        "reasoning": {
+          "type": "object",
+          "properties": {
+            "factors_considered": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "decision_logic": {"type": "string"},
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "ethical_assessment": {
+          "type": "object",
+          "properties": {
+            "ethical_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "potential_harm": {"type": "string"},
+            "benefit_analysis": {"type": "string"}
+          }
+        }
+      }
+    },
+
+    "ResourceAccess": {
+      "type": "object",
+      "required": [
+        "resource_id",
+        "access_type",
+        "timestamp",
+        "permission_level"
+      ],
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "description": "Identifier of accessed resource"
+        },
+        "resource_type": {
+          "type": "string",
+          "enum": ["file", "database", "api", "network", "system", "user_data"]
+        },
+        "access_type": {
+          "type": "string",
+          "enum": ["read", "write", "execute", "delete", "create", "modify"]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "permission_level": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted", "top_secret"]
+        },
+        "justification": {
+          "type": "string",
+          "description": "Why this access was necessary"
+        },
+        "authorization": {
+          "type": "object",
+          "properties": {
+            "authorized": {"type": "boolean"},
+            "authority": {"type": "string"},
+            "scope": {"type": "string"}
+          }
+        }
+      }
+    },
+
+    "IntentVerificationResult": {
+      "type": "object",
+      "required": [
+        "verification_id",
+        "agent_id", 
+        "task_id",
+        "alignment_score",
+        "verification_status",
+        "analysis"
+      ],
+      "properties": {
+        "verification_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "agent_id": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "alignment_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Overall intent-behavior alignment (0=complete misalignment, 1=perfect alignment)"
+        },
+        "verification_status": {
+          "type": "string",
+          "enum": ["aligned", "partially_aligned", "misaligned", "potentially_malicious"],
+          "description": "Overall verification result"
+        },
+        "analysis": {
+          "$ref": "#/definitions/IntentAnalysis"
+        },
+        "recommendations": {
+          "$ref": "#/definitions/VerificationRecommendations"
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+
+    "IntentAnalysis": {
+      "type": "object",
+      "properties": {
+        "intent_clarity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How clearly the intent was stated"
+        },
+        "execution_consistency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How consistently actions matched stated intent"
+        },
+        "constraint_adherence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How well self-imposed constraints were followed"
+        },
+        "unexpected_actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": {"type": "string"},
+              "deviation_level": {"type": "string", "enum": ["minor", "moderate", "major", "critical"]},
+              "explanation": {"type": "string"}
+            }
+          },
+          "description": "Actions that deviated from stated intent"
+        },
+        "potential_deceptions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "deception_type": {"type": "string", "enum": ["omission", "misdirection", "false_claim"]},
+              "evidence": {"type": "string"},
+              "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]}
+            }
+          }
+        },
+        "benevolence_indicators": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "indicator": {"type": "string"},
+              "strength": {"type": "number", "minimum": 0, "maximum": 1}
+            }
+          },
+          "description": "Evidence of beneficial intent"
+        }
+      }
+    },
+
+    "VerificationRecommendations": {
+      "type": "object",
+      "properties": {
+        "trust_adjustment": {
+          "type": "string",
+          "enum": ["increase", "maintain", "decrease", "revoke"],
+          "description": "Recommended trust level change"
+        },
+        "sandbox_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "Recommended Agent Jail level (0=maximum restriction, 4=full freedom)"
+        },
+        "monitoring_intensity": {
+          "type": "string",
+          "enum": ["minimal", "standard", "enhanced", "maximum"],
+          "description": "Recommended monitoring level"
+        },
+        "required_actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": {"type": "string"},
+              "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+              "deadline": {"type": "string", "format": "date-time"}
+            }
+          }
+        },
+        "restrictions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional restrictions to impose"
+        },
+        "review_schedule": {
+          "type": "object",
+          "properties": {
+            "next_review": {"type": "string", "format": "date-time"},
+            "review_frequency": {"type": "string", "enum": ["continuous", "hourly", "daily", "weekly", "monthly"]}
+          }
+        }
+      }
+    }
+  },
+
+  "oneOf": [
+    {"$ref": "#/definitions/IntentVerificationRequest"},
+    {"$ref": "#/definitions/IntentVerificationResult"}
+  ],
+
+  "examples": [
+    {
+      "agent_id": "qagent-v1.2.3",
+      "task_id": "task-550e8400-e29b-41d4-a716-446655440000",
+      "stated_intent": {
+        "declared_objective": "Generate a REST API endpoint for user authentication",
+        "expected_outcomes": [
+          {
+            "outcome_type": "create",
+            "target_resource": "authentication_handler.go",
+            "expected_result": "Secure authentication endpoint with JWT tokens"
+          }
+        ],
+        "constraints": [
+          "Never store passwords in plain text",
+          "Always use HTTPS for authentication",
+          "Include rate limiting"
+        ],
+        "success_criteria": [
+          "Code compiles without errors",
+          "Passes security scan",
+          "Includes proper error handling"
+        ],
+        "risk_assessment": {
+          "risk_level": "medium",
+          "potential_harm": [
+            "Authentication bypass if implemented incorrectly",
+            "Password exposure if stored improperly"
+          ],
+          "mitigation_strategies": [
+            "Use bcrypt for password hashing",
+            "Implement proper JWT validation",
+            "Add comprehensive logging"
+          ]
+        }
+      }
+    }
+  ]
+}

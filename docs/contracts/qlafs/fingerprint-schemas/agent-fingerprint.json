@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QLAFS Agent Fingerprint Contract",
+  "description": "Schema definitions for AI agent fingerprinting in the QLAFS system",
+  "version": "1.0.0",
+
+  "definitions": {
+    "AgentFingerprint": {
+      "type": "object",
+      "required": [
+        "agent_id",
+        "agent_type", 
+        "fingerprint_hash",
+        "dimensions",
+        "confidence",
+        "created_at"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9-_]+$",
+          "description": "Unique agent identifier"
+        },
+        "agent_type": {
+          "type": "string",
+          "enum": [
+            "code_generation",
+            "test_generation", 
+            "security_scanning",
+            "infrastructure_provisioning",
+            "monitoring_analysis"
+          ],
+          "description": "Type of AI agent"
+        },
+        "fingerprint_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "description": "Cryptographic hash of the complete fingerprint"
+        },
+        "dimensions": {
+          "$ref": "#/definitions/FingerprintDimensions"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score of the fingerprint accuracy"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fingerprint creation timestamp"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time", 
+          "description": "Optional expiration timestamp"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional fingerprint metadata"
+        }
+      }
+    },
+
+    "FingerprintDimensions": {
+      "type": "object",
+      "properties": {
+        "static": {
+          "$ref": "#/definitions/StaticFingerprint",
+          "description": "Static characteristics of the agent"
+        },
+        "behavioral": {
+          "$ref": "#/definitions/BehavioralFingerprint",
+          "description": "Behavioral patterns and responses"
+        },
+        "cognitive": {
+          "$ref": "#/definitions/CognitiveFingerprint", 
+          "description": "Reasoning and decision-making patterns"
+        },
+        "compositional": {
+          "$ref": "#/definitions/CompositionalFingerprint",
+          "description": "Interactions with other agents and systems"
+        }
+      },
+      "minProperties": 1,
+      "description": "Multi-dimensional fingerprint data"
+    },
+
+    "StaticFingerprint": {
+      "type": "object",
+      "required": [
+        "model_architecture",
+        "parameter_count",
+        "weights_hash"
+      ],
+      "properties": {
+        "model_architecture": {
+          "type": "string",
+          "enum": ["transformer", "lstm", "cnn", "hybrid", "other"],
+          "description": "Model architecture type"
+        },
+        "parameter_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of model parameters"
+        },
+        "weights_hash": {
+          "type": "string", 
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "description": "Cryptographic hash of model weights"
+        },
+        "model_version": {
+          "type": "string",
+          "description": "Version identifier of the model"
+        },
+        "training_data_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "description": "Hash of training data fingerprint"
+        },
+        "hyperparameters": {
+          "type": "object",
+          "description": "Model hyperparameters"
+        }
+      }
+    },
+
+    "BehavioralFingerprint": {
+      "type": "object",
+      "required": [
+        "response_patterns",
+        "decision_consistency"
+      ],
+      "properties": {
+        "response_patterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResponsePattern"
+          },
+          "minItems": 1,
+          "description": "Observed response patterns"
+        },
+        "decision_consistency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Consistency score of agent decisions"
+        },
+        "error_patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "error_type": { "type": "string" },
+              "frequency": { "type": "number" },
+              "context": { "type": "object" }
+            }
+          },
+          "description": "Common error patterns"
+        },
+        "performance_metrics": {
+          "type": "object",
+          "properties": {
+            "avg_response_time": { 
+              "type": "number", 
+              "minimum": 0,
+              "description": "Average response time in milliseconds" 
+            },
+            "success_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Success rate of operations"
+            },
+            "resource_usage": {
+              "type": "object",
+              "description": "Resource consumption patterns"
+            }
+          }
+        }
+      }
+    },
+
+    "CognitiveFingerprint": {
+      "type": "object",
+      "required": [
+        "reasoning_patterns",
+        "context_understanding"
+      ],
+      "properties": {
+        "reasoning_patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern_type": {
+                "type": "string",
+                "enum": ["logical", "analogical", "causal", "probabilistic"]
+              },
+              "strength": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "examples": {
+                "type": "array",
+                "items": { "type": "object" }
+              }
+            }
+          },
+          "description": "Identified reasoning patterns"
+        },
+        "context_understanding": {
+          "type": "object",
+          "properties": {
+            "scope_awareness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Understanding of problem scope"
+            },
+            "domain_knowledge": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "domain": { "type": "string" },
+                  "proficiency": { 
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              },
+              "description": "Domain-specific knowledge assessment"
+            }
+          }
+        },
+        "learning_adaptability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Ability to adapt to new contexts"
+        }
+      }
+    },
+
+    "CompositionalFingerprint": {
+      "type": "object",
+      "required": [
+        "interaction_patterns",
+        "dependency_graph"
+      ],
+      "properties": {
+        "interaction_patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target_service": { "type": "string" },
+              "interaction_type": { 
+                "type": "string",
+                "enum": ["api_call", "event_publish", "event_subscribe", "workflow_invoke"]
+              },
+              "frequency": { "type": "number", "minimum": 0 },
+              "typical_payload": { "type": "object" }
+            }
+          },
+          "description": "Patterns of interaction with other services"
+        },
+        "dependency_graph": {
+          "type": "object",
+          "properties": {
+            "dependencies": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of service dependencies"
+            },
+            "dependents": {
+              "type": "array", 
+              "items": { "type": "string" },
+              "description": "Services that depend on this agent"
+            }
+          }
+        },
+        "resource_utilization": {
+          "type": "object",
+          "properties": {
+            "cpu_patterns": { "type": "object" },
+            "memory_patterns": { "type": "object" },
+            "network_patterns": { "type": "object" }
+          },
+          "description": "Resource usage patterns"
+        }
+      }
+    },
+
+    "ResponsePattern": {
+      "type": "object",
+      "required": [
+        "input_class",
+        "output_class", 
+        "confidence"
+      ],
+      "properties": {
+        "input_class": {
+          "type": "string",
+          "description": "Classification of input type"
+        },
+        "output_class": {
+          "type": "string",
+          "description": "Classification of output type"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in this pattern"
+        },
+        "frequency": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of times this pattern was observed"
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "input": { "type": "string" },
+              "output": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          },
+          "maxItems": 5,
+          "description": "Example instances of this pattern"
+        }
+      }
+    }
+  },
+
+  "$ref": "#/definitions/AgentFingerprint",
+
+  "examples": [
+    {
+      "agent_id": "qagent-v1.2.3",
+      "agent_type": "code_generation",
+      "fingerprint_hash": "sha256:a3b5c7d9e1f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4",
+      "dimensions": {
+        "static": {
+          "model_architecture": "transformer",
+          "parameter_count": 175000000000,
+          "weights_hash": "sha256:b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6",
+          "model_version": "1.2.3"
+        },
+        "behavioral": {
+          "response_patterns": [
+            {
+              "input_class": "rest_api_request",
+              "output_class": "go_handler_function", 
+              "confidence": 0.95,
+              "frequency": 150
+            }
+          ],
+          "decision_consistency": 0.92,
+          "performance_metrics": {
+            "avg_response_time": 2300,
+            "success_rate": 0.94
+          }
+        }
+      },
+      "confidence": 0.91,
+      "created_at": "2025-01-15T10:30:00Z"
+    }
+  ]
+}

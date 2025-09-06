@@ -1,0 +1,86 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: qlens-internal-routing
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: routing
+spec:
+  hosts:
+  - qlens-router.quantum-system.svc.cluster.local
+  http:
+  # Internal router API - called by gateway
+  - match:
+    - uri:
+        prefix: /internal/v1
+    route:
+    - destination:
+        host: qlens-router.quantum-system.svc.cluster.local
+        port:
+          number: 8106
+        subset: v1
+      weight: 100
+    timeout: 90s  # Longer timeout for LLM processing
+    retries:
+      attempts: 2
+      perTryTimeout: 45s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    fault:
+      delay:
+        percentage:
+          value: 0.1  # 0.1% of requests get delayed (chaos engineering)
+        fixedDelay: 5s
+    headers:
+      request:
+        add:
+          x-service: qlens-router
+          x-internal-call: "true"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: qlens-cache-routing
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-cache
+    app.kubernetes.io/component: routing
+spec:
+  hosts:
+  - qlens-cache.quantum-system.svc.cluster.local
+  http:
+  # Internal cache API - called by router
+  - match:
+    - uri:
+        prefix: /internal/v1/cache
+    route:
+    - destination:
+        host: qlens-cache.quantum-system.svc.cluster.local
+        port:
+          number: 8107
+        subset: v1
+      weight: 100
+    timeout: 10s  # Fast timeout for cache operations
+    retries:
+      attempts: 1  # Don't retry cache operations
+      perTryTimeout: 5s
+    headers:
+      request:
+        add:
+          x-service: qlens-cache
+          x-internal-call: "true"
+  # Health checks
+  - match:
+    - uri:
+        prefix: /health
+    route:
+    - destination:
+        host: qlens-cache.quantum-system.svc.cluster.local
+        port:
+          number: 8107
+        subset: v1
+    timeout: 5s
+    retries:
+      attempts: 2
+      perTryTimeout: 2s

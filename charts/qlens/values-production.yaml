@@ -1,0 +1,221 @@
+# Production environment overrides
+environment: production
+namespace: qlens-production
+
+# Replica counts for production (higher scale)
+replicaCount:
+  gateway: 3
+  router: 3
+  cache: 2
+
+# Resources for production (higher)
+resources:
+  gateway:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+  router:
+    limits:
+      cpu: 1500m
+      memory: 1Gi
+    requests:
+      cpu: 750m
+      memory: 512Mi
+  cache:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+# Autoscaling enabled for production
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    gateway: 8080
+    router: 8081
+    cache: 8082
+
+# Ingress for production (Azure)
+ingress:
+  enabled: true
+  className: azure-application-gateway
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    appgw.ingress.kubernetes.io/request-timeout: "30"
+    appgw.ingress.kubernetes.io/connection-draining: "true"
+    appgw.ingress.kubernetes.io/connection-draining-timeout: "30"
+  hosts:
+    - host: qlens.quantumlayer.ai
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: qlens-tls
+      hosts:
+        - qlens.quantumlayer.ai
+
+# Cost controls for production ($1000 daily limit)
+costControls:
+  enabled: true
+  dailyLimits:
+    total: 1000
+    perTenant: 200
+    perUser: 50
+  alertThresholds: [50, 75, 90, 95]
+  providers:
+    preferenceOrder: ["azure-openai", "aws-bedrock"]
+    costOptimization:
+      enabled: true
+      routeByComplexity: true
+
+# Cache configuration (Redis for production)
+cache:
+  enabled: true
+  type: redis
+  ttl: 3600
+  maxSize: 10000
+  redis:
+    host: qlens-redis.redis.cache.windows.net
+    port: 6380
+    database: 0
+    tls: true
+
+# Health checks (standard for production)
+healthChecks:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Monitoring enabled with full observability
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 15s
+      scrapeTimeout: 5s
+      labels:
+        prometheus: production
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+
+# Istio enabled for production (advanced traffic management)
+istio:
+  enabled: true
+  gateway:
+    enabled: true
+    hosts:
+      - qlens.quantumlayer.ai
+    tls:
+      mode: SIMPLE
+      credentialName: qlens-tls
+
+# External secrets enabled (Azure Key Vault)
+externalSecrets:
+  enabled: true
+  backend: azurekv
+  refreshInterval: 3600
+
+# Logging configuration
+logging:
+  level: info
+  format: json
+  structured: true
+
+# Authentication enabled for production
+auth:
+  enabled: true
+  type: jwt
+  jwt:
+    issuer: "https://quantumlayer.auth0.com/"
+    audience: "qlens-api"
+    jwksUrl: "https://quantumlayer.auth0.com/.well-known/jwks.json"
+
+# Rate limiting (production limits)
+rateLimit:
+  enabled: true
+  global:
+    requestsPerMinute: 10000
+    tokensPerHour: 1000000
+  perTenant:
+    requestsPerMinute: 1000
+    tokensPerHour: 100000
+  perUser:
+    requestsPerMinute: 500
+    tokensPerHour: 50000
+
+# Pod security context (strict for production)
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1001
+
+# Node affinity for production workloads
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/os
+          operator: In
+          values:
+          - linux
+        - key: node-role.kubernetes.io/worker
+          operator: Exists
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - qlens
+        topologyKey: kubernetes.io/hostname
+
+# Tolerations for production nodes
+tolerations:
+- key: "sku"
+  operator: "Equal"
+  value: "production"
+  effect: "NoSchedule"

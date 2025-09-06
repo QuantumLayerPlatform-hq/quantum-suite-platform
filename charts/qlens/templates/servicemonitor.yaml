@@ -1,0 +1,33 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "qlens.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "qlens.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.prometheus.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.monitoring.prometheus.serviceMonitor.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "qlens.selectorLabels" . | nindent 6 }}
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: {{ .Values.monitoring.prometheus.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.monitoring.prometheus.serviceMonitor.scrapeTimeout }}
+    {{- with .Values.monitoring.prometheus.serviceMonitor.relabelings }}
+    relabelings:
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.monitoring.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,133 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBTCCAe2gAwIBAgIIMMYq2AaEuqAwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+      AxMKa3ViZXJuZXRlczAeFw0yNTA5MDIyMzA0MzJaFw0zNTA4MzEyMzA5MzJaMBUx
+      EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+      AoIBAQDQZPTv1qUWMYzMd+82eZZkoQzofbS+FOUCnqcmFmagGMaOuWqHit1NX5KE
+      GjDS0DBI0sTk0GiRPLPsNoehZexKRC0xsN9RVsE2gEj75pT7oLvP1BxbFI9/X5gv
+      wQY8z6IJ3ORA8iND99pL6Re1MATiA7CJW/3kdwZgo93+mhirLRTolvFsg/b7kH1v
+      SJ+GqSQB5Jr5EpGZ1PLoeJuR7pTNEuD74KRSmhu1hM6RubDefS2aG4j1zZILHKDf
+      uzxYHm99XNzkGxeDFd3TLcUyYk7qutfurAapoCXaGuQxdG7wI1IlHx1WRArDCGvB
+      Z+1DyLYlXrJBiCO2P4maMi41BLe3AgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+      BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBStBvTyw8p/O+SZtwZdO4Di7BTSvjAV
+      BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQB8zOG/3K9d
+      nZpNeciU+jxRs8mi2KyNrBN5tVvHzRghPUewIRJuKTe/0o12sGTZwFQNaqu1I+zR
+      uZe4hVB7VljKfXlpTFWv+CQZztOOgodQdkGzHgl1hxEkTCEO9koTqTf32AbUjmCv
+      8Lla3rJh77N1Mh8lIfOWebWM4OhaYRAKo/6/Vmc02JMuR4+x+vblcI6pmTQlHPjl
+      i5m0DvFaRp+xLPDujuAm0lhCejRyXB6Y5BhAGFH3DBUuCCytDcZCyINe1pfz3jux
+      OZz6hTCT2iAR2ceDb0BqVfD5R5GSg7I5xtXHzFhEYdWAObulsLjrcrGjTljVw6Aj
+      pvYaGh0uEzDb
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2025-09-05T03:30:19Z"
+    name: kube-root-ca.crt
+    namespace: packer-system
+    resourceVersion: "725048"
+    uid: 1f0d1656-2029-4064-b1b9-7357efca6184
+- apiVersion: v1
+  data:
+    rhel-base.pkr.hcl: |
+      source "docker" "rhel" {
+        image  = "registry.access.redhat.com/ubi9/ubi:latest"
+        commit = true
+      }
+
+      build {
+        name = "rhel-golden"
+        sources = ["source.docker.rhel"]
+
+        provisioner "shell" {
+          inline = [
+            "dnf update -y",
+            "dnf install -y curl wget vim net-tools",
+            "dnf clean all"
+          ]
+        }
+
+        provisioner "shell" {
+          inline = [
+            "# STIG Hardening",
+            "echo 'umask 077' >> /etc/profile",
+            "echo 'readonly TMOUT=900' >> /etc/profile",
+            "chmod 644 /etc/passwd",
+            "chmod 000 /etc/shadow"
+          ]
+        }
+
+        post-processor "docker-tag" {
+          repository = "docker-registry.image-registry.svc.cluster.local:5000/golden-images/rhel"
+          tags       = ["9-hardened", "latest"]
+        }
+      }
+    ubuntu-base.pkr.hcl: |
+      packer {
+        required_plugins {
+          docker = {
+            version = ">= 1.0.0"
+            source  = "github.com/hashicorp/docker"
+          }
+        }
+      }
+
+      source "docker" "ubuntu" {
+        image  = "ubuntu:22.04"
+        commit = true
+        changes = [
+          "ENTRYPOINT [\"/bin/bash\"]",
+          "USER root",
+          "WORKDIR /"
+        ]
+      }
+
+      build {
+        name = "ubuntu-golden"
+        sources = ["source.docker.ubuntu"]
+
+        provisioner "shell" {
+          inline = [
+            "apt-get update",
+            "apt-get install -y curl wget vim net-tools",
+            "apt-get install -y openssl ca-certificates",
+            "apt-get clean",
+            "rm -rf /var/lib/apt/lists/*"
+          ]
+        }
+
+        provisioner "shell" {
+          inline = [
+            "# CIS Hardening",
+            "echo 'kernel.randomize_va_space = 2' >> /etc/sysctl.conf",
+            "echo 'net.ipv4.conf.all.accept_source_route = 0' >> /etc/sysctl.conf",
+            "echo 'net.ipv4.conf.default.accept_source_route = 0' >> /etc/sysctl.conf",
+            "echo 'net.ipv4.icmp_echo_ignore_broadcasts = 1' >> /etc/sysctl.conf"
+          ]
+        }
+
+        post-processor "docker-tag" {
+          repository = "docker-registry.image-registry.svc.cluster.local:5000/golden-images/ubuntu"
+          tags       = ["22.04-hardened", "latest"]
+        }
+      }
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"rhel-base.pkr.hcl":"source \"docker\" \"rhel\" {\n  image  = \"registry.access.redhat.com/ubi9/ubi:latest\"\n  commit = true\n}\n\nbuild {\n  name = \"rhel-golden\"\n  sources = [\"source.docker.rhel\"]\n\n  provisioner \"shell\" {\n    inline = [\n      \"dnf update -y\",\n      \"dnf install -y curl wget vim net-tools\",\n      \"dnf clean all\"\n    ]\n  }\n\n  provisioner \"shell\" {\n    inline = [\n      \"# STIG Hardening\",\n      \"echo 'umask 077' \u003e\u003e /etc/profile\",\n      \"echo 'readonly TMOUT=900' \u003e\u003e /etc/profile\",\n      \"chmod 644 /etc/passwd\",\n      \"chmod 000 /etc/shadow\"\n    ]\n  }\n\n  post-processor \"docker-tag\" {\n    repository = \"docker-registry.image-registry.svc.cluster.local:5000/golden-images/rhel\"\n    tags       = [\"9-hardened\", \"latest\"]\n  }\n}\n","ubuntu-base.pkr.hcl":"packer {\n  required_plugins {\n    docker = {\n      version = \"\u003e= 1.0.0\"\n      source  = \"github.com/hashicorp/docker\"\n    }\n  }\n}\n\nsource \"docker\" \"ubuntu\" {\n  image  = \"ubuntu:22.04\"\n  commit = true\n  changes = [\n    \"ENTRYPOINT [\\\"/bin/bash\\\"]\",\n    \"USER root\",\n    \"WORKDIR /\"\n  ]\n}\n\nbuild {\n  name = \"ubuntu-golden\"\n  sources = [\"source.docker.ubuntu\"]\n\n  provisioner \"shell\" {\n    inline = [\n      \"apt-get update\",\n      \"apt-get install -y curl wget vim net-tools\",\n      \"apt-get install -y openssl ca-certificates\",\n      \"apt-get clean\",\n      \"rm -rf /var/lib/apt/lists/*\"\n    ]\n  }\n\n  provisioner \"shell\" {\n    inline = [\n      \"# CIS Hardening\",\n      \"echo 'kernel.randomize_va_space = 2' \u003e\u003e /etc/sysctl.conf\",\n      \"echo 'net.ipv4.conf.all.accept_source_route = 0' \u003e\u003e /etc/sysctl.conf\",\n      \"echo 'net.ipv4.conf.default.accept_source_route = 0' \u003e\u003e /etc/sysctl.conf\",\n      \"echo 'net.ipv4.icmp_echo_ignore_broadcasts = 1' \u003e\u003e /etc/sysctl.conf\"\n    ]\n  }\n\n  post-processor \"docker-tag\" {\n    repository = \"docker-registry.image-registry.svc.cluster.local:5000/golden-images/ubuntu\"\n    tags       = [\"22.04-hardened\", \"latest\"]\n  }\n}\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"packer-templates","namespace":"packer-system"}}
+    creationTimestamp: "2025-09-05T03:30:19Z"
+    name: packer-templates
+    namespace: packer-system
+    resourceVersion: "725049"
+    uid: dadccff8-2089-49ef-a732-b6e946bf73eb
+kind: List
+metadata:
+  resourceVersion: ""

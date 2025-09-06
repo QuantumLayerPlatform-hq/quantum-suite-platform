@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "qlens.fullname" . }}-cache
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "qlens.cache.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.cache }}
+  selector:
+    matchLabels:
+      {{- include "qlens.cache.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "qlens.cache.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "qlens.serviceAccountName" . }}
+      {{- include "qlens.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: cache
+          {{- include "qlens.securityContext" . | nindent 10 }}
+          image: {{ include "qlens.componentImage" (dict "Values" .Values "component" "cache") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.ports.cache }}
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          env:
+            {{- include "qlens.commonEnv" . | nindent 12 }}
+            {{- include "qlens.providerEnv" . | nindent 12 }}
+            - name: SERVICE_NAME
+              value: "qlens-cache"
+            - name: PORT
+              value: {{ .Values.service.ports.cache | quote }}
+            {{- if and .Values.cache.enabled (eq .Values.cache.type "redis") }}
+            - name: REDIS_HOST
+              value: {{ .Values.cache.redis.host | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.cache.redis.port | quote }}
+            - name: REDIS_DATABASE
+              value: {{ .Values.cache.redis.database | quote }}
+            - name: REDIS_TLS
+              value: {{ .Values.cache.redis.tls | quote }}
+            {{- if .Values.cache.redis.password }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "qlens.fullname" . }}-secrets
+                  key: cache-redis-password
+            {{- end }}
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "qlens.fullname" . }}-config
+          {{- if .Values.healthChecks.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: {{ .Values.healthChecks.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthChecks.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthChecks.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthChecks.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.healthChecks.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: {{ .Values.healthChecks.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthChecks.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthChecks.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthChecks.readiness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources.cache | nindent 12 }}
+          volumeMounts:
+            {{- include "qlens.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "qlens.volumes" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

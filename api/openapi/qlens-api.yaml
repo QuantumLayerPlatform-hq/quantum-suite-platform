@@ -1,0 +1,989 @@
+openapi: 3.0.3
+info:
+  title: QLens - Quantum LLM Gateway API
+  description: |
+    QLens is the unified LLM gateway service for the Quantum Suite platform.
+    It provides a contract-first API for interacting with multiple LLM providers
+    including OpenAI, Anthropic, and local models through a single interface.
+  version: 1.0.0
+  contact:
+    name: Quantum Suite Team
+    url: https://github.com/QuantumLayerPlatform-hq/quantum-suite-platform
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8105
+    description: Development server
+  - url: https://api.quantum-suite.io/qlens/v1
+    description: Production server
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      operationId: getHealth
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /models:
+    get:
+      summary: List available models
+      operationId: listModels
+      tags:
+        - Models
+      parameters:
+        - name: provider
+          in: query
+          description: Filter by provider
+          schema:
+            type: string
+            enum: [openai, anthropic, local]
+        - name: capability
+          in: query
+          description: Filter by capability
+          schema:
+            type: string
+            enum: [completion, embedding, vision, code]
+      responses:
+        '200':
+          description: List of available models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelsResponse'
+
+  /completions:
+    post:
+      summary: Create a completion
+      operationId: createCompletion
+      tags:
+        - Completions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionRequest'
+      responses:
+        '200':
+          description: Completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletionResponse'
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/StreamingResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /embeddings:
+    post:
+      summary: Create embeddings
+      operationId: createEmbeddings
+      tags:
+        - Embeddings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingRequest'
+      responses:
+        '200':
+          description: Embedding response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingResponse'
+
+  /templates:
+    get:
+      summary: List prompt templates
+      operationId: listTemplates
+      tags:
+        - Templates
+      parameters:
+        - name: category
+          in: query
+          description: Filter by category
+          schema:
+            type: string
+        - name: tags
+          in: query
+          description: Filter by tags
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: List of prompt templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplatesResponse'
+
+    post:
+      summary: Create a prompt template
+      operationId: createTemplate
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateRequest'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+
+  /templates/{templateId}/render:
+    post:
+      summary: Render a template with variables
+      operationId: renderTemplate
+      tags:
+        - Templates
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenderTemplateRequest'
+      responses:
+        '200':
+          description: Rendered template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderTemplateResponse'
+
+  /usage:
+    get:
+      summary: Get usage statistics
+      operationId: getUsage
+      tags:
+        - Usage
+      parameters:
+        - name: tenant_id
+          in: query
+          description: Filter by tenant ID
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          description: Start date for usage stats
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          description: End date for usage stats
+          schema:
+            type: string
+            format: date-time
+        - name: provider
+          in: query
+          description: Filter by provider
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Usage statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageResponse'
+
+  /metrics:
+    get:
+      summary: Get service metrics
+      operationId: getMetrics
+      tags:
+        - Metrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        uptime:
+          type: integer
+          description: Uptime in seconds
+        providers:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ProviderHealth'
+
+    ProviderHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        latency_ms:
+          type: number
+        error_rate:
+          type: number
+        last_check:
+          type: string
+          format: date-time
+
+    CompletionRequest:
+      type: object
+      required:
+        - messages
+      properties:
+        model:
+          type: string
+          description: Specific model to use (optional, will auto-select if not provided)
+          example: "gpt-4"
+        provider:
+          type: string
+          enum: [openai, anthropic, local, auto]
+          default: auto
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        max_tokens:
+          type: integer
+          minimum: 1
+          maximum: 32768
+          default: 1000
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 0.7
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 1
+        stream:
+          type: boolean
+          default: false
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+        user:
+          type: string
+          description: User identifier for tracking
+        tenant_id:
+          type: string
+          format: uuid
+          description: Tenant identifier for multi-tenancy
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional metadata for tracking
+
+    Message:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                $ref: '#/components/schemas/ContentPart'
+        name:
+          type: string
+        tool_call_id:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+
+    ContentPart:
+      type: object
+      required:
+        - type
+      discriminator:
+        propertyName: type
+      oneOf:
+        - $ref: '#/components/schemas/TextContent'
+        - $ref: '#/components/schemas/ImageContent'
+
+    TextContent:
+      type: object
+      required:
+        - type
+        - text
+      properties:
+        type:
+          type: string
+          enum: [text]
+        text:
+          type: string
+
+    ImageContent:
+      type: object
+      required:
+        - type
+        - image_url
+      properties:
+        type:
+          type: string
+          enum: [image_url]
+        image_url:
+          type: object
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              format: uri
+            detail:
+              type: string
+              enum: [low, high, auto]
+              default: auto
+
+    ToolCall:
+      type: object
+      required:
+        - id
+        - type
+        - function
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [function]
+        function:
+          type: object
+          required:
+            - name
+            - arguments
+          properties:
+            name:
+              type: string
+            arguments:
+              type: string
+
+    CompletionResponse:
+      type: object
+      required:
+        - id
+        - object
+        - created
+        - model
+        - choices
+        - usage
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          enum: [chat.completion]
+        created:
+          type: integer
+          format: int64
+        model:
+          type: string
+        provider:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Choice'
+        usage:
+          $ref: '#/components/schemas/Usage'
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Choice:
+      type: object
+      required:
+        - index
+        - message
+        - finish_reason
+      properties:
+        index:
+          type: integer
+        message:
+          $ref: '#/components/schemas/Message'
+        finish_reason:
+          type: string
+          enum: [stop, length, tool_calls, content_filter, function_call]
+        logprobs:
+          type: object
+          nullable: true
+
+    StreamingResponse:
+      type: object
+      required:
+        - id
+        - object
+        - created
+        - model
+        - choices
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          enum: [chat.completion.chunk]
+        created:
+          type: integer
+          format: int64
+        model:
+          type: string
+        provider:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/StreamChoice'
+
+    StreamChoice:
+      type: object
+      required:
+        - index
+        - delta
+      properties:
+        index:
+          type: integer
+        delta:
+          $ref: '#/components/schemas/Delta'
+        finish_reason:
+          type: string
+          enum: [stop, length, tool_calls, content_filter]
+          nullable: true
+
+    Delta:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          type: string
+          nullable: true
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+
+    Usage:
+      type: object
+      required:
+        - prompt_tokens
+        - completion_tokens
+        - total_tokens
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        cost_usd:
+          type: number
+          description: Estimated cost in USD
+        cache_hit:
+          type: boolean
+          description: Whether response was served from cache
+
+    EmbeddingRequest:
+      type: object
+      required:
+        - input
+      properties:
+        model:
+          type: string
+          description: Embedding model to use
+          default: "text-embedding-ada-002"
+        provider:
+          type: string
+          enum: [openai, local, auto]
+          default: auto
+        input:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        encoding_format:
+          type: string
+          enum: [float, base64]
+          default: float
+        dimensions:
+          type: integer
+          description: Number of dimensions for output embeddings
+        user:
+          type: string
+        tenant_id:
+          type: string
+          format: uuid
+
+    EmbeddingResponse:
+      type: object
+      required:
+        - object
+        - data
+        - model
+        - usage
+      properties:
+        object:
+          type: string
+          enum: [list]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Embedding'
+        model:
+          type: string
+        provider:
+          type: string
+        usage:
+          $ref: '#/components/schemas/EmbeddingUsage'
+
+    Embedding:
+      type: object
+      required:
+        - object
+        - embedding
+        - index
+      properties:
+        object:
+          type: string
+          enum: [embedding]
+        embedding:
+          type: array
+          items:
+            type: number
+        index:
+          type: integer
+
+    EmbeddingUsage:
+      type: object
+      required:
+        - prompt_tokens
+        - total_tokens
+      properties:
+        prompt_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        cost_usd:
+          type: number
+
+    ModelsResponse:
+      type: object
+      required:
+        - object
+        - data
+      properties:
+        object:
+          type: string
+          enum: [list]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Model'
+
+    Model:
+      type: object
+      required:
+        - id
+        - object
+        - provider
+        - capabilities
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          enum: [model]
+        provider:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum: [completion, embedding, vision, code, function_calling]
+        context_length:
+          type: integer
+        pricing:
+          $ref: '#/components/schemas/ModelPricing'
+        status:
+          type: string
+          enum: [available, deprecated, limited]
+
+    ModelPricing:
+      type: object
+      properties:
+        input_token_cost:
+          type: number
+          description: Cost per input token in USD
+        output_token_cost:
+          type: number
+          description: Cost per output token in USD
+        unit:
+          type: string
+          enum: [token, request]
+
+    Template:
+      type: object
+      required:
+        - id
+        - name
+        - content
+        - variables
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        content:
+          type: string
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateVariable'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          format: uuid
+
+    TemplateVariable:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [string, number, boolean, array, object]
+        description:
+          type: string
+        required:
+          type: boolean
+          default: false
+        default_value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+            - type: object
+
+    CreateTemplateRequest:
+      type: object
+      required:
+        - name
+        - content
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        content:
+          type: string
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateVariable'
+
+    RenderTemplateRequest:
+      type: object
+      required:
+        - variables
+      properties:
+        variables:
+          type: object
+          additionalProperties: true
+
+    RenderTemplateResponse:
+      type: object
+      required:
+        - rendered_content
+      properties:
+        rendered_content:
+          type: string
+        variables_used:
+          type: array
+          items:
+            type: string
+
+    TemplatesResponse:
+      type: object
+      required:
+        - object
+        - data
+      properties:
+        object:
+          type: string
+          enum: [list]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Template'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    UsageResponse:
+      type: object
+      required:
+        - period
+        - total_requests
+        - total_tokens
+        - total_cost
+        - by_provider
+      properties:
+        period:
+          type: object
+          required:
+            - start_date
+            - end_date
+          properties:
+            start_date:
+              type: string
+              format: date-time
+            end_date:
+              type: string
+              format: date-time
+        total_requests:
+          type: integer
+        total_tokens:
+          type: integer
+        total_cost:
+          type: number
+        by_provider:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ProviderUsage'
+        by_model:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ModelUsage'
+        daily_breakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyUsage'
+
+    ProviderUsage:
+      type: object
+      required:
+        - requests
+        - tokens
+        - cost
+      properties:
+        requests:
+          type: integer
+        tokens:
+          type: integer
+        cost:
+          type: number
+        avg_response_time:
+          type: number
+        error_rate:
+          type: number
+
+    ModelUsage:
+      type: object
+      required:
+        - requests
+        - tokens
+        - cost
+      properties:
+        requests:
+          type: integer
+        tokens:
+          type: integer
+        cost:
+          type: number
+        avg_tokens_per_request:
+          type: number
+
+    DailyUsage:
+      type: object
+      required:
+        - date
+        - requests
+        - tokens
+        - cost
+      properties:
+        date:
+          type: string
+          format: date
+        requests:
+          type: integer
+        tokens:
+          type: integer
+        cost:
+          type: number
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        total:
+          type: integer
+        has_more:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - type
+            - message
+          properties:
+            type:
+              type: string
+              enum: [invalid_request, authentication_error, authorization_error, rate_limit_exceeded, provider_error, internal_error]
+            message:
+              type: string
+            code:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+            request_id:
+              type: string
+
+tags:
+  - name: Health
+    description: Service health and status endpoints
+  - name: Models
+    description: Available model management
+  - name: Completions
+    description: Text and code completion endpoints
+  - name: Embeddings
+    description: Text embedding generation
+  - name: Templates
+    description: Prompt template management
+  - name: Usage
+    description: Usage statistics and billing
+  - name: Metrics
+    description: Service metrics and monitoring

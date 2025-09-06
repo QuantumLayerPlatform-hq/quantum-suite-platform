@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qlens-config
+data:
+  ENVIRONMENT: "development"
+  LOG_LEVEL: "debug"
+  ISTIO_ENABLED: "false"
+  AUTH_ENABLED: "false"
+  CACHE_TYPE: "memory"
+  TRACING_ENABLED: "false"

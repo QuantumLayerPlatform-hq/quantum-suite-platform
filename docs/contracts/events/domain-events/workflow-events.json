@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workflow Domain Events Contract",
+  "description": "Schema definitions for workflow-related domain events",
+  "version": "1.0.0",
+  
+  "definitions": {
+    "BaseWorkflowEvent": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "event_type", 
+        "workflow_id",
+        "timestamp",
+        "version"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique event identifier"
+        },
+        "event_type": {
+          "type": "string",
+          "description": "Type of workflow event"
+        },
+        "workflow_id": {
+          "type": "string",
+          "format": "uuid", 
+          "description": "Workflow execution identifier"
+        },
+        "workflow_type": {
+          "type": "string",
+          "enum": [
+            "CodeGenerationPipeline",
+            "TestExecutionPipeline", 
+            "SecurityScanPipeline",
+            "InfraProvisionPipeline",
+            "DevSecOpsPipeline"
+          ],
+          "description": "Type of workflow"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Event occurrence timestamp"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Event schema version"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional event metadata"
+        }
+      }
+    },
+
+    "WorkflowStarted": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseWorkflowEvent" },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "const": "WorkflowStarted"
+            },
+            "input": {
+              "type": "object",
+              "description": "Workflow input parameters"
+            },
+            "timeout": {
+              "type": "string",
+              "pattern": "^[0-9]+[smh]$",
+              "description": "Workflow timeout duration"
+            }
+          },
+          "required": ["input"]
+        }
+      ]
+    },
+
+    "WorkflowCompleted": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseWorkflowEvent" },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "const": "WorkflowCompleted" 
+            },
+            "result": {
+              "type": "object",
+              "description": "Workflow execution result"
+            },
+            "duration_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Workflow execution duration in milliseconds"
+            }
+          },
+          "required": ["result", "duration_ms"]
+        }
+      ]
+    },
+
+    "WorkflowFailed": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseWorkflowEvent" },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "const": "WorkflowFailed"
+            },
+            "error": {
+              "type": "string",
+              "description": "Failure reason"
+            },
+            "error_code": {
+              "type": "string",
+              "description": "Machine-readable error code"
+            },
+            "retry_attempt": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Current retry attempt number"
+            },
+            "stack_trace": {
+              "type": "string",
+              "description": "Error stack trace"
+            }
+          },
+          "required": ["error", "error_code"]
+        }
+      ]
+    },
+
+    "WorkflowSignalReceived": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseWorkflowEvent" },
+        {
+          "type": "object", 
+          "properties": {
+            "event_type": {
+              "const": "WorkflowSignalReceived"
+            },
+            "signal_name": {
+              "type": "string",
+              "description": "Name of the received signal"
+            },
+            "signal_input": {
+              "type": "object",
+              "description": "Signal payload data"
+            }
+          },
+          "required": ["signal_name"]
+        }
+      ]
+    },
+
+    "ActivityStarted": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseWorkflowEvent" },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "const": "ActivityStarted"
+            },
+            "activity_type": {
+              "type": "string",
+              "description": "Type of activity being executed"
+            },
+            "activity_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Unique activity execution identifier"
+            },
+            "input": {
+              "type": "object",
+              "description": "Activity input parameters"
+            }
+          },
+          "required": ["activity_type", "activity_id"]
+        }
+      ]
+    },
+
+    "ActivityCompleted": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseWorkflowEvent" },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "const": "ActivityCompleted"
+            },
+            "activity_type": {
+              "type": "string",
+              "description": "Type of activity that completed"
+            },
+            "activity_id": {
+              "type": "string", 
+              "format": "uuid",
+              "description": "Activity execution identifier"
+            },
+            "result": {
+              "type": "object",
+              "description": "Activity execution result"
+            },
+            "duration_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Activity execution duration"
+            }
+          },
+          "required": ["activity_type", "activity_id", "result", "duration_ms"]
+        }
+      ]
+    }
+  },
+
+  "oneOf": [
+    { "$ref": "#/definitions/WorkflowStarted" },
+    { "$ref": "#/definitions/WorkflowCompleted" },
+    { "$ref": "#/definitions/WorkflowFailed" },
+    { "$ref": "#/definitions/WorkflowSignalReceived" },
+    { "$ref": "#/definitions/ActivityStarted" },
+    { "$ref": "#/definitions/ActivityCompleted" }
+  ],
+
+  "examples": [
+    {
+      "event_id": "550e8400-e29b-41d4-a716-446655440000",
+      "event_type": "WorkflowStarted",
+      "workflow_id": "wf-123e4567-e89b-12d3-a456-426614174000", 
+      "workflow_type": "CodeGenerationPipeline",
+      "timestamp": "2025-01-15T10:30:00Z",
+      "version": 1,
+      "input": {
+        "prompt": "Create a REST API endpoint",
+        "language": "go"
+      },
+      "timeout": "30m"
+    },
+    {
+      "event_id": "550e8400-e29b-41d4-a716-446655440001",
+      "event_type": "WorkflowCompleted",
+      "workflow_id": "wf-123e4567-e89b-12d3-a456-426614174000",
+      "workflow_type": "CodeGenerationPipeline", 
+      "timestamp": "2025-01-15T10:45:00Z",
+      "version": 1,
+      "result": {
+        "generated_code": "package main...",
+        "fingerprint_id": "fp-123",
+        "trust_score": 0.95
+      },
+      "duration_ms": 900000
+    }
+  ]
+}

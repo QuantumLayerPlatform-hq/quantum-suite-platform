@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "qlens.fullname" . }}-gateway
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "qlens.gateway.labels" . | nindent 4 }}
+  {{- if .Values.istio.enabled }}
+  annotations:
+    networking.istio.io/exportTo: "*"
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.ports.gateway }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    {{- if .Values.monitoring.enabled }}
+    - port: 8080
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  selector:
+    {{- include "qlens.gateway.selectorLabels" . | nindent 4 }}

@@ -1,0 +1,71 @@
+{{- if .Values.autoscaling.enabled }}
+{{- $targetCPUUtilizationPercentage := .Values.autoscaling.targetCPUUtilizationPercentage }}
+{{- $targetMemoryUtilizationPercentage := .Values.autoscaling.targetMemoryUtilizationPercentage }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "qlens.fullname" . }}-gateway
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "qlens.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "qlens.fullname" . }}-gateway
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    {{- if $targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if $targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ $targetMemoryUtilizationPercentage }}
+    {{- end }}
+---
+{{- if gt (.Values.replicaCount.router | int) 1 }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "qlens.fullname" . }}-router
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "qlens.labels" . | nindent 4 }}
+    app.kubernetes.io/component: router
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "qlens.fullname" . }}-router
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    {{- if $targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if $targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ $targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}
+{{- end }}

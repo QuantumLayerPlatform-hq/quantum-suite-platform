@@ -1,0 +1,145 @@
+openapi: 3.0.3
+info:
+  title: Temporal Workflows Service Contract
+  description: |
+    Contract specification for Temporal workflow orchestration service.
+    Defines deterministic interfaces for workflow execution, monitoring, and management.
+  version: "1.0.0"
+  contact:
+    name: Platform Team
+    email: platform@quantum-suite.io
+
+servers:
+  - url: http://temporal-workflows.quantum-system.svc.cluster.local:8080
+    description: Internal service endpoint
+
+paths:
+  /workflows:
+    post:
+      operationId: startWorkflow
+      summary: Start a new workflow execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartWorkflowRequest'
+      responses:
+        '201':
+          description: Workflow started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowExecution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /workflows/{workflowId}:
+    get:
+      operationId: getWorkflow
+      summary: Get workflow execution details
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workflow details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowExecution'
+
+components:
+  schemas:
+    StartWorkflowRequest:
+      type: object
+      required:
+        - workflow_type
+        - input
+      properties:
+        workflow_type:
+          type: string
+          enum:
+            - CodeGenerationPipeline
+            - TestExecutionPipeline
+            - SecurityScanPipeline
+            - InfraProvisionPipeline
+            - DevSecOpsPipeline
+          description: Type of workflow to execute
+        workflow_id:
+          type: string
+          format: uuid
+          description: Optional custom workflow ID
+        input:
+          type: object
+          description: Workflow-specific input parameters
+        timeout:
+          type: string
+          pattern: '^[0-9]+[smh]$'
+          default: "24h"
+          description: Workflow timeout (e.g., "30m", "24h")
+
+    WorkflowExecution:
+      type: object
+      required:
+        - workflow_id
+        - run_id
+        - workflow_type
+        - status
+        - created_at
+      properties:
+        workflow_id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        workflow_type:
+          type: string
+        status:
+          type: string
+          enum: [RUNNING, COMPLETED, FAILED, CANCELLED, TERMINATED]
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        input:
+          type: object
+        result:
+          type: object
+        error:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              code:
+                type: string
+                enum: [INVALID_WORKFLOW_TYPE, INVALID_INPUT, INVALID_TIMEOUT]
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              code:
+                type: string

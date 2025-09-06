@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "qlens.fullname" . }}-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "qlens.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  # Environment configuration
+  ENVIRONMENT: {{ .Values.environment | quote }}
+  NAMESPACE: {{ .Values.namespace | quote }}
+  
+  # Logging configuration
+  LOG_LEVEL: {{ .Values.logging.level | quote }}
+  LOG_FORMAT: {{ .Values.logging.format | quote }}
+  LOG_STRUCTURED: {{ .Values.logging.structured | quote }}
+  
+  # Service ports
+  GATEWAY_PORT: {{ .Values.service.ports.gateway | quote }}
+  ROUTER_PORT: {{ .Values.service.ports.router | quote }}
+  CACHE_PORT: {{ .Values.service.ports.cache | quote }}
+  
+  # Authentication configuration
+  AUTH_ENABLED: {{ .Values.auth.enabled | quote }}
+  {{- if .Values.auth.enabled }}
+  AUTH_TYPE: {{ .Values.auth.type | quote }}
+  {{- if eq .Values.auth.type "jwt" }}
+  JWT_ISSUER: {{ .Values.auth.jwt.issuer | quote }}
+  JWT_AUDIENCE: {{ .Values.auth.jwt.audience | quote }}
+  JWT_JWKS_URL: {{ .Values.auth.jwt.jwksUrl | quote }}
+  {{- end }}
+  {{- end }}
+  
+  # Rate limiting configuration
+  RATE_LIMIT_ENABLED: {{ .Values.rateLimit.enabled | quote }}
+  {{- if .Values.rateLimit.enabled }}
+  RATE_LIMIT_GLOBAL_RPM: {{ .Values.rateLimit.global.requestsPerMinute | quote }}
+  RATE_LIMIT_GLOBAL_TPH: {{ .Values.rateLimit.global.tokensPerHour | quote }}
+  RATE_LIMIT_TENANT_RPM: {{ .Values.rateLimit.perTenant.requestsPerMinute | quote }}
+  RATE_LIMIT_TENANT_TPH: {{ .Values.rateLimit.perTenant.tokensPerHour | quote }}
+  RATE_LIMIT_USER_RPM: {{ .Values.rateLimit.perUser.requestsPerMinute | quote }}
+  RATE_LIMIT_USER_TPH: {{ .Values.rateLimit.perUser.tokensPerHour | quote }}
+  {{- end }}
+  
+  # Cache configuration
+  CACHE_ENABLED: {{ .Values.cache.enabled | quote }}
+  {{- if .Values.cache.enabled }}
+  CACHE_TYPE: {{ .Values.cache.type | quote }}
+  CACHE_TTL: {{ .Values.cache.ttl | quote }}
+  CACHE_MAX_SIZE: {{ .Values.cache.maxSize | quote }}
+  {{- if eq .Values.cache.type "redis" }}
+  CACHE_REDIS_HOST: {{ .Values.cache.redis.host | quote }}
+  CACHE_REDIS_PORT: {{ .Values.cache.redis.port | quote }}
+  CACHE_REDIS_DATABASE: {{ .Values.cache.redis.database | quote }}
+  CACHE_REDIS_TLS: {{ .Values.cache.redis.tls | quote }}
+  {{- end }}
+  {{- end }}
+  
+  # Provider configuration
+  {{- if .Values.providers.azureOpenAI.enabled }}
+  AZURE_OPENAI_ENABLED: "true"
+  AZURE_OPENAI_API_VERSION: {{ .Values.providers.azureOpenAI.apiVersion | quote }}
+  {{- range $key, $value := .Values.providers.azureOpenAI.deployments }}
+  {{ printf "AZURE_OPENAI_DEPLOYMENT_%s" (upper $key) }}: {{ $value | quote }}
+  {{- end }}
+  AZURE_OPENAI_MODELS: {{ .Values.providers.azureOpenAI.models | toJson | quote }}
+  {{- end }}
+  
+  {{- if .Values.providers.awsBedrock.enabled }}
+  AWS_BEDROCK_ENABLED: "true"
+  AWS_BEDROCK_MODELS: {{ .Values.providers.awsBedrock.models | toJson | quote }}
+  {{- end }}
+  
+  # Monitoring configuration
+  METRICS_ENABLED: {{ .Values.monitoring.enabled | quote }}
+  {{- if .Values.monitoring.prometheus.enabled }}
+  PROMETHEUS_ENABLED: "true"
+  {{- end }}
+  
+  # Health check configuration
+  HEALTH_CHECK_LIVENESS_INITIAL_DELAY: {{ .Values.healthChecks.liveness.initialDelaySeconds | quote }}
+  HEALTH_CHECK_LIVENESS_PERIOD: {{ .Values.healthChecks.liveness.periodSeconds | quote }}
+  HEALTH_CHECK_READINESS_INITIAL_DELAY: {{ .Values.healthChecks.readiness.initialDelaySeconds | quote }}
+  HEALTH_CHECK_READINESS_PERIOD: {{ .Values.healthChecks.readiness.periodSeconds | quote }}
+  
+  # Cost control configuration
+  {{- if .Values.costControls.enabled }}
+  COST_CONTROLS_ENABLED: "true"
+  COST_DAILY_LIMIT_TOTAL: {{ .Values.costControls.dailyLimits.total | quote }}
+  COST_DAILY_LIMIT_PER_TENANT: {{ .Values.costControls.dailyLimits.perTenant | quote }}
+  COST_DAILY_LIMIT_PER_USER: {{ .Values.costControls.dailyLimits.perUser | quote }}
+  COST_ALERT_THRESHOLDS: {{ .Values.costControls.alertThresholds | toJson | quote }}
+  COST_PROVIDER_PREFERENCE: {{ .Values.costControls.providers.preferenceOrder | toJson | quote }}
+  {{- if .Values.costControls.providers.costOptimization.enabled }}
+  COST_OPTIMIZATION_ENABLED: "true"
+  COST_ROUTE_BY_COMPLEXITY: {{ .Values.costControls.providers.costOptimization.routeByComplexity | quote }}
+  {{- end }}
+  {{- end }}
+  
+  # Istio configuration
+  {{- if .Values.istio.enabled }}
+  ISTIO_ENABLED: "true"
+  {{- end }}
+  
+  # External secrets configuration
+  {{- if .Values.externalSecrets.enabled }}
+  EXTERNAL_SECRETS_ENABLED: "true"
+  EXTERNAL_SECRETS_BACKEND: {{ .Values.externalSecrets.backend | quote }}
+  EXTERNAL_SECRETS_REFRESH_INTERVAL: {{ .Values.externalSecrets.refreshInterval | quote }}
+  {{- end }}

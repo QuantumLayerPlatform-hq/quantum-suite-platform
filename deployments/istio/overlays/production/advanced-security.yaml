@@ -1,0 +1,178 @@
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: qlens-jwt-auth
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: security
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qlens-gateway
+  jwtRules:
+  - issuer: "https://auth.quantum-suite.com"
+    jwksUri: "https://auth.quantum-suite.com/.well-known/jwks.json"
+    audiences:
+    - "qlens-api"
+    outputPayloadToHeader: "x-jwt-payload"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+    forwardOriginalToken: true
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: qlens-production-authz
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: security
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qlens-gateway
+  rules:
+  # Allow health checks
+  - to:
+    - operation:
+        paths: ["/health", "/health/ready", "/health/live"]
+  # Require valid JWT for API access
+  - to:
+    - operation:
+        paths: ["/v1/*"]
+    when:
+    - key: request.auth.claims[aud]
+      values: ["qlens-api"]
+    - key: request.auth.claims[tenant_id]
+      values: ["*"]
+    - key: request.headers[x-tenant-id]
+      values: ["*"]
+    # Ensure JWT tenant matches header tenant (prevent tenant jumping)
+    - key: request.auth.claims[tenant_id]
+      values: ["%{request.headers[x-tenant-id]}"]
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: qlens-security-headers
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: security
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/name: qlens-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          inline_code: |
+            function envoy_on_request(request_handle)
+              -- Add security headers
+              request_handle:headers():add("x-content-type-options", "nosniff")
+              request_handle:headers():add("x-frame-options", "DENY")
+              request_handle:headers():add("x-xss-protection", "1; mode=block")
+              request_handle:headers():add("referrer-policy", "strict-origin-when-cross-origin")
+              request_handle:headers():add("permissions-policy", "geolocation=(), microphone=(), camera=()")
+              
+              -- Remove sensitive headers
+              request_handle:headers():remove("server")
+              request_handle:headers():remove("x-powered-by")
+              
+              -- Add CORS headers for specific origins
+              local origin = request_handle:headers():get("origin")
+              if origin and (string.find(origin, "quantum-suite.com") or string.find(origin, "localhost")) then
+                request_handle:headers():add("access-control-allow-origin", origin)
+                request_handle:headers():add("access-control-allow-methods", "GET, POST, OPTIONS")
+                request_handle:headers():add("access-control-allow-headers", "authorization, content-type, x-tenant-id, x-user-id, x-correlation-id")
+                request_handle:headers():add("access-control-max-age", "86400")
+              end
+            end
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: qlens-request-validation
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: security
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/name: qlens-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          inline_code: |
+            function envoy_on_request(request_handle)
+              local path = request_handle:headers():get(":path")
+              local method = request_handle:headers():get(":method")
+              
+              -- Skip validation for health checks
+              if string.find(path, "/health") then
+                return
+              end
+              
+              -- Validate required headers for API calls
+              if string.find(path, "/v1/") then
+                local tenant_id = request_handle:headers():get("x-tenant-id")
+                local user_id = request_handle:headers():get("x-user-id")
+                
+                if not tenant_id or tenant_id == "" then
+                  request_handle:respond({[":status"] = "400"}, "Missing x-tenant-id header")
+                  return
+                end
+                
+                if not user_id or user_id == "" then
+                  request_handle:respond({[":status"] = "400"}, "Missing x-user-id header")
+                  return
+                end
+                
+                -- Validate tenant ID format
+                if not string.match(tenant_id, "^[a-zA-Z0-9_-]+$") or string.len(tenant_id) > 64 then
+                  request_handle:respond({[":status"] = "400"}, "Invalid tenant ID format")
+                  return
+                end
+                
+                -- Validate user ID format
+                if not string.match(user_id, "^[a-zA-Z0-9_-]+$") or string.len(user_id) > 64 then
+                  request_handle:respond({[":status"] = "400"}, "Invalid user ID format")
+                  return
+                end
+              end
+              
+              -- Content length validation
+              local content_length = request_handle:headers():get("content-length")
+              if content_length and tonumber(content_length) > 10485760 then  -- 10MB limit
+                request_handle:respond({[":status"] = "413"}, "Request entity too large")
+                return
+              end
+            end

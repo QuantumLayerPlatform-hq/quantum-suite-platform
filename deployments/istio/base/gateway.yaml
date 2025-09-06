@@ -1,0 +1,93 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: qlens-gateway
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "qlens.quantum-suite.com"
+    - "qlens-staging.quantum-suite.com"
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: qlens-tls-secret
+    hosts:
+    - "qlens.quantum-suite.com"
+    - "qlens-staging.quantum-suite.com"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: qlens-gateway-vs
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: gateway
+spec:
+  hosts:
+  - "qlens.quantum-suite.com"
+  - "qlens-staging.quantum-suite.com"
+  gateways:
+  - qlens-gateway
+  http:
+  # Health check endpoints - no auth required
+  - match:
+    - uri:
+        prefix: /health
+    route:
+    - destination:
+        host: qlens-gateway.quantum-system.svc.cluster.local
+        port:
+          number: 8105
+    timeout: 10s
+    retries:
+      attempts: 3
+      perTryTimeout: 3s
+  
+  # API endpoints - require authentication
+  - match:
+    - uri:
+        prefix: /v1
+    route:
+    - destination:
+        host: qlens-gateway.quantum-system.svc.cluster.local
+        port:
+          number: 8105
+    timeout: 60s  # Longer for LLM requests
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    headers:
+      request:
+        add:
+          x-forwarded-proto: https
+      response:
+        add:
+          x-content-type-options: nosniff
+          x-frame-options: DENY
+          x-xss-protection: "1; mode=block"
+          strict-transport-security: "max-age=31536000; includeSubDomains"
+  
+  # Redirect HTTP to HTTPS
+  - match:
+    - headers:
+        x-forwarded-proto:
+          exact: http
+    redirect:
+      scheme: https
+      redirectCode: 301

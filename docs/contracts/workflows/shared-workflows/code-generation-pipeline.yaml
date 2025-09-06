@@ -1,0 +1,419 @@
+workflow_contract:
+  name: CodeGenerationPipeline
+  version: "1.0.0"
+  description: |
+    End-to-end workflow for AI-powered code generation with integrated testing,
+    security scanning, fingerprinting, and provenance tracking.
+  
+  owner: platform-team
+  
+  dependencies:
+    - service: qagent
+      version: ">=1.0.0"
+    - service: qtest  
+      version: ">=1.0.0"
+    - service: qsecure
+      version: ">=1.0.0"
+    - service: qlafs
+      version: ">=1.0.0"
+    - service: temporal
+      version: ">=1.20.0"
+
+  input_schema:
+    type: object
+    required:
+      - request_id
+      - prompt
+      - language
+    properties:
+      request_id:
+        type: string
+        format: uuid
+        description: Unique request identifier
+      prompt:
+        type: string
+        minLength: 10
+        maxLength: 5000
+        description: Natural language description of code to generate
+      language:
+        type: string
+        enum: ["go", "python", "javascript", "typescript", "java", "rust"]
+        description: Target programming language
+      context:
+        type: object
+        properties:
+          project_id:
+            type: string
+            format: uuid
+          workspace_id:
+            type: string
+            format: uuid
+          existing_code:
+            type: string
+            description: Existing code context
+          requirements:
+            type: array
+            items:
+              type: string
+            description: Specific requirements or constraints
+      options:
+        type: object
+        properties:
+          include_tests:
+            type: boolean
+            default: true
+            description: Whether to generate tests
+          include_security_scan:
+            type: boolean
+            default: true
+            description: Whether to perform security scanning
+          include_documentation:
+            type: boolean
+            default: false
+            description: Whether to generate documentation
+          max_iterations:
+            type: integer
+            minimum: 1
+            maximum: 5
+            default: 3
+            description: Maximum self-criticism iterations
+          target_test_coverage:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+            default: 0.85
+            description: Target test coverage percentage
+
+  output_schema:
+    type: object
+    required:
+      - request_id
+      - status
+      - generated_code
+      - fingerprint_record
+      - provenance_record
+    properties:
+      request_id:
+        type: string
+        format: uuid
+      status:
+        type: string
+        enum: ["completed", "failed", "cancelled"]
+      generated_code:
+        type: object
+        required:
+          - content
+          - language
+          - confidence
+        properties:
+          content:
+            type: string
+            description: Generated code content
+          language:
+            type: string
+            description: Programming language used
+          confidence:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+            description: Confidence in generated code quality
+          iterations:
+            type: integer
+            minimum: 1
+            description: Number of self-criticism iterations performed
+          validation_results:
+            type: object
+            properties:
+              syntax_valid:
+                type: boolean
+              compile_success:
+                type: boolean
+              static_analysis:
+                type: object
+      test_results:
+        type: object
+        properties:
+          generated:
+            type: boolean
+            description: Whether tests were generated
+          test_count:
+            type: integer
+            minimum: 0
+          coverage_achieved:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+          execution_results:
+            type: object
+            properties:
+              passed:
+                type: integer
+              failed:
+                type: integer
+              errors:
+                type: array
+                items:
+                  type: string
+      security_scan_results:
+        type: object
+        properties:
+          performed:
+            type: boolean
+          vulnerabilities_found:
+            type: integer
+            minimum: 0
+          severity_breakdown:
+            type: object
+            properties:
+              critical:
+                type: integer
+              high: 
+                type: integer
+              medium:
+                type: integer
+              low:
+                type: integer
+          scan_tools:
+            type: array
+            items:
+              type: string
+      fingerprint_record:
+        type: object
+        required:
+          - fingerprint_id
+          - agent_id
+          - fingerprint_hash
+        properties:
+          fingerprint_id:
+            type: string
+            format: uuid
+          agent_id:
+            type: string
+          fingerprint_hash:
+            type: string
+            pattern: "^sha256:[a-f0-9]{64}$"
+          confidence:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+      provenance_record:
+        type: object
+        required:
+          - record_id
+          - operation_id
+          - merkle_proof
+        properties:
+          record_id:
+            type: string
+            format: uuid
+          operation_id:
+            type: string
+            format: uuid
+          merkle_proof:
+            type: array
+            items:
+              type: string
+          transparency_log_index:
+            type: integer
+            minimum: 0
+      error:
+        type: string
+        description: Error message if workflow failed
+
+  workflow_steps:
+    - name: validate_input
+      type: activity
+      description: Validate and sanitize workflow input
+      timeout: "30s"
+      retry_policy:
+        max_attempts: 1
+      
+    - name: parse_prompt
+      type: activity 
+      description: Parse natural language prompt and extract intent
+      timeout: "2m"
+      retry_policy:
+        max_attempts: 3
+        initial_interval: "1s"
+        backoff_coefficient: 2.0
+        
+    - name: search_similar_code
+      type: activity
+      description: Search vector database for similar code patterns
+      timeout: "1m"
+      retry_policy:
+        max_attempts: 2
+
+    - name: generate_code
+      type: activity
+      description: Generate code using LLM with context
+      timeout: "10m"
+      retry_policy:
+        max_attempts: 3
+        initial_interval: "5s"
+
+    - name: self_criticism_loop
+      type: sub_workflow
+      description: Iterative self-criticism and improvement
+      max_iterations: 3
+      timeout: "15m"
+
+    - name: fingerprint_agent
+      type: activity
+      description: Generate QLAFS fingerprint for the agent
+      timeout: "2m"
+      retry_policy:
+        max_attempts: 2
+
+    - name: generate_tests
+      type: activity
+      description: Generate comprehensive tests for the code
+      timeout: "5m"
+      condition: "input.options.include_tests == true"
+      retry_policy:
+        max_attempts: 2
+
+    - name: execute_tests
+      type: activity
+      description: Execute generated tests and measure coverage
+      timeout: "10m"
+      condition: "tests_generated == true"
+      retry_policy:
+        max_attempts: 1
+
+    - name: security_scan
+      type: activity
+      description: Perform security scanning on generated code
+      timeout: "5m"
+      condition: "input.options.include_security_scan == true"
+      retry_policy:
+        max_attempts: 2
+
+    - name: record_provenance
+      type: activity
+      description: Record provenance in QLAFS transparency log
+      timeout: "1m"
+      retry_policy:
+        max_attempts: 3
+
+    - name: validate_output
+      type: activity
+      description: Final validation of workflow output
+      timeout: "30s"
+      retry_policy:
+        max_attempts: 1
+
+  human_tasks:
+    - name: security_review
+      trigger_condition: "security_scan_results.severity_breakdown.critical > 0"
+      description: Human security review required for critical vulnerabilities
+      timeout: "24h"
+      escalation: "security-team"
+
+    - name: code_review
+      trigger_condition: "generated_code.confidence < 0.8"
+      description: Human code review required for low-confidence generation
+      timeout: "4h"
+      escalation: "dev-team"
+
+  signals:
+    - name: security_approval
+      description: Security team approval for critical vulnerabilities
+      input_schema:
+        type: object
+        properties:
+          approved:
+            type: boolean
+          comments:
+            type: string
+          remediation_applied:
+            type: boolean
+
+    - name: code_approval
+      description: Developer approval for generated code
+      input_schema:
+        type: object
+        properties:
+          approved:
+            type: boolean
+          feedback:
+            type: string
+          suggested_improvements:
+            type: array
+            items:
+              type: string
+
+  metrics:
+    - name: workflow_duration
+      type: histogram
+      description: Total workflow execution time
+    - name: code_quality_score
+      type: gauge
+      description: Generated code quality score
+    - name: test_coverage_achieved
+      type: gauge
+      description: Actual test coverage percentage
+    - name: security_vulnerabilities
+      type: counter
+      description: Number of security vulnerabilities found
+    - name: human_intervention_rate
+      type: gauge
+      description: Percentage of workflows requiring human intervention
+
+  sla:
+    completion_time: "30m"
+    success_rate: 0.95
+    availability: 0.999
+
+  error_handling:
+    - error_type: "LLMTimeoutError"
+      action: "retry"
+      max_retries: 2
+    - error_type: "SecurityScanFailure"
+      action: "continue"
+      log_level: "warn"
+    - error_type: "FingerprintingFailure"
+      action: "continue"
+      log_level: "error"
+    - error_type: "TestGenerationFailure"
+      action: "continue_without_tests"
+      log_level: "warn"
+
+  compensation_activities:
+    - name: cleanup_temp_resources
+      description: Clean up temporary files and resources
+      always_execute: true
+    - name: rollback_partial_results
+      description: Remove partial results if workflow fails
+      condition: "workflow_failed == true"
+    - name: notify_failure
+      description: Send failure notifications
+      condition: "workflow_failed == true"
+
+examples:
+  - name: simple_function_generation
+    description: Generate a simple utility function
+    input:
+      request_id: "550e8400-e29b-41d4-a716-446655440000"
+      prompt: "Create a function to validate email addresses"
+      language: "go"
+      options:
+        include_tests: true
+        include_security_scan: false
+    
+  - name: rest_api_generation
+    description: Generate a REST API endpoint with full pipeline
+    input:
+      request_id: "550e8400-e29b-41d4-a716-446655440001"
+      prompt: "Create a REST API endpoint for user management with CRUD operations"
+      language: "go"
+      context:
+        project_id: "proj-123"
+        requirements:
+          - "Include input validation"
+          - "Add proper error handling"
+          - "Include OpenAPI documentation"
+      options:
+        include_tests: true
+        include_security_scan: true
+        target_test_coverage: 0.90

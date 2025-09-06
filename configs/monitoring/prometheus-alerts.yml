@@ -1,0 +1,253 @@
+groups:
+  - name: qlens.rules
+    rules:
+      # High-level service health alerts
+      - alert: QLensHighErrorRate
+        expr: |
+          (
+            sum(rate(qlens_requests_total{status=~"5.*"}[5m])) /
+            sum(rate(qlens_requests_total[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: qlens
+        annotations:
+          summary: "QLens has high error rate"
+          description: "QLens error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      - alert: QLensHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(qlens_request_duration_seconds_bucket[5m])) by (le)
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "QLens has high response latency"
+          description: "QLens 95th percentile latency is {{ $value }}s over the last 5 minutes"
+
+      - alert: QLensServiceDown
+        expr: up{job=~"qlens-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: qlens
+        annotations:
+          summary: "QLens service is down"
+          description: "QLens service {{ $labels.job }} has been down for more than 1 minute"
+
+      # Provider-specific alerts
+      - alert: ProviderUnhealthy
+        expr: qlens_provider_health_status == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "Provider {{ $labels.provider }} is unhealthy"
+          description: "Provider {{ $labels.provider }} has been marked unhealthy for more than 5 minutes"
+
+      - alert: ProviderHighErrorRate
+        expr: |
+          (
+            sum(rate(qlens_provider_errors_total[5m])) by (provider) /
+            sum(rate(qlens_provider_requests_total[5m])) by (provider)
+          ) > 0.10
+        for: 3m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "Provider {{ $labels.provider }} has high error rate"
+          description: "Provider {{ $labels.provider }} error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      - alert: ProviderHighLatency
+        expr: |
+          (
+            sum(rate(qlens_provider_latency_seconds_sum[5m])) by (provider) /
+            sum(rate(qlens_provider_latency_seconds_count[5m])) by (provider)
+          ) > 15
+        for: 5m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "Provider {{ $labels.provider }} has high latency"
+          description: "Provider {{ $labels.provider }} average latency is {{ $value }}s over the last 5 minutes"
+
+      # Cost and usage alerts
+      - alert: HighDailyCost
+        expr: sum(increase(qlens_cost_usd_total[1d])) > 500
+        for: 0m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "High daily cost detected"
+          description: "Total daily cost has reached ${{ $value | humanize }}"
+
+      - alert: TenantHighCost
+        expr: sum(increase(qlens_cost_usd_total[1d])) by (tenant_id) > 100
+        for: 0m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "High cost for tenant {{ $labels.tenant_id }}"
+          description: "Tenant {{ $labels.tenant_id }} daily cost has reached ${{ $value | humanize }}"
+
+      - alert: UnusualTokenUsage
+        expr: |
+          sum(rate(qlens_tokens_processed_total[1h])) by (tenant_id) >
+          5 * sum(rate(qlens_tokens_processed_total[1h] offset 24h)) by (tenant_id)
+        for: 30m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "Unusual token usage for tenant {{ $labels.tenant_id }}"
+          description: "Tenant {{ $labels.tenant_id }} token usage is 5x higher than yesterday"
+
+      # Rate limiting alerts
+      - alert: HighRateLimitHits
+        expr: sum(rate(qlens_rate_limit_hits_total[5m])) by (tenant_id) > 10
+        for: 2m
+        labels:
+          severity: info
+          service: qlens
+        annotations:
+          summary: "High rate limit hits for tenant {{ $labels.tenant_id }}"
+          description: "Tenant {{ $labels.tenant_id }} is hitting rate limits frequently ({{ $value }} hits/sec)"
+
+      # Cache performance alerts
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            sum(rate(qlens_cache_hits_total[10m])) /
+            (sum(rate(qlens_cache_hits_total[10m])) + sum(rate(qlens_cache_misses_total[10m])))
+          ) < 0.7
+        for: 5m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} over the last 10 minutes"
+
+      - alert: CacheHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(qlens_cache_operation_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 3m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "High cache operation latency"
+          description: "Cache 95th percentile latency is {{ $value }}s"
+
+      # System resource alerts
+      - alert: HighMemoryUsage
+        expr: qlens_memory_usage_bytes / 1024 / 1024 / 1024 > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "High memory usage for {{ $labels.service }}"
+          description: "{{ $labels.service }} memory usage is {{ $value | humanize }}GB"
+
+      - alert: HighCPUUsage
+        expr: qlens_cpu_usage_percentage > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "High CPU usage for {{ $labels.service }}"
+          description: "{{ $labels.service }} CPU usage is {{ $value }}%"
+
+      - alert: TooManyActiveConnections
+        expr: qlens_active_connections > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "Too many active connections for {{ $labels.service }}"
+          description: "{{ $labels.service }} has {{ $value }} active connections"
+
+      # Business metrics alerts
+      - alert: NoActiveUsers
+        expr: sum(qlens_daily_active_users) == 0
+        for: 1h
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "No active users detected"
+          description: "No active users have been recorded in the last hour"
+
+      - alert: StreamingRequestsDown
+        expr: sum(rate(qlens_streaming_requests_total[10m])) == 0
+        for: 30m
+        labels:
+          severity: info
+          service: qlens
+        annotations:
+          summary: "No streaming requests"
+          description: "No streaming requests have been processed in the last 30 minutes"
+
+      # Security and anomaly alerts
+      - alert: UnusualRequestPattern
+        expr: |
+          sum(rate(qlens_requests_total[5m])) by (tenant_id) >
+          10 * sum(rate(qlens_requests_total[5m] offset 1h)) by (tenant_id)
+        for: 2m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "Unusual request pattern for tenant {{ $labels.tenant_id }}"
+          description: "Tenant {{ $labels.tenant_id }} request rate is 10x higher than 1 hour ago"
+
+      - alert: MultipleProviderFailures
+        expr: |
+          count by () (
+            qlens_provider_health_status == 0
+          ) >= 2
+        for: 1m
+        labels:
+          severity: critical
+          service: qlens
+        annotations:
+          summary: "Multiple providers are failing"
+          description: "{{ $value }} providers are currently unhealthy"
+
+      # Data quality alerts
+      - alert: MetricsScrapeFailure
+        expr: up{job=~"qlens-.*"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          service: qlens
+        annotations:
+          summary: "Metrics scraping failed for {{ $labels.job }}"
+          description: "Prometheus cannot scrape metrics from {{ $labels.job }}"
+
+      - alert: MissingMetrics
+        expr: |
+          absent(qlens_requests_total) or
+          absent(qlens_provider_requests_total) or
+          absent(qlens_cost_usd_total)
+        for: 5m
+        labels:
+          severity: critical
+          service: qlens
+        annotations:
+          summary: "Critical metrics are missing"
+          description: "One or more critical QLens metrics are not being reported"

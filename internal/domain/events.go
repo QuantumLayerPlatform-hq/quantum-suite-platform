@@ -219,10 +219,10 @@ type InfrastructureProvisionFailed struct {
 
 type GoldenImageCreated struct {
 	BaseDomainEvent
-	ImageID     string    `json:"image_id"`
-	Name        string    `json:"name"`
-	Version     string    `json:"version"`
-	BaseOS      string    `json:"base_os"`
+	ImageID        string    `json:"image_id"`
+	Name           string    `json:"name"`
+	ImageVersion   string    `json:"image_version"`
+	BaseOS         string    `json:"base_os"`
 	Size        int64     `json:"size"`
 	Checksum    string    `json:"checksum"`
 }
@@ -288,6 +288,173 @@ type SLOViolated struct {
 	Context    map[string]interface{} `json:"context"`
 }
 
+// QLens Events
+type LLMRequestSubmitted struct {
+	BaseDomainEvent
+	RequestID   string    `json:"request_id"`
+	TenantID    TenantID  `json:"tenant_id"`
+	UserID      UserID    `json:"user_id"`
+	Provider    string    `json:"provider"`
+	Model       string    `json:"model"`
+	MessageCount int      `json:"message_count"`
+	EstimatedTokens int   `json:"estimated_tokens"`
+	Stream      bool      `json:"stream"`
+}
+
+type LLMRequestCompleted struct {
+	BaseDomainEvent
+	RequestID       string        `json:"request_id"`
+	Provider        string        `json:"provider"`
+	Model           string        `json:"model"`
+	TokensUsed      int           `json:"tokens_used"`
+	Cost            float64       `json:"cost"`
+	ResponseTime    time.Duration `json:"response_time"`
+	CacheHit        bool          `json:"cache_hit"`
+	FinishReason    string        `json:"finish_reason"`
+}
+
+type LLMRequestFailed struct {
+	BaseDomainEvent
+	RequestID    string `json:"request_id"`
+	Provider     string `json:"provider"`
+	Model        string `json:"model"`
+	Error        string `json:"error"`
+	ErrorType    string `json:"error_type"`
+	ResponseTime time.Duration `json:"response_time"`
+	Retryable    bool   `json:"retryable"`
+}
+
+type EmbeddingRequestSubmitted struct {
+	BaseDomainEvent
+	RequestID   string   `json:"request_id"`
+	TenantID    TenantID `json:"tenant_id"`
+	UserID      UserID   `json:"user_id"`
+	Provider    string   `json:"provider"`
+	Model       string   `json:"model"`
+	InputCount  int      `json:"input_count"`
+	EstimatedTokens int  `json:"estimated_tokens"`
+}
+
+type EmbeddingRequestCompleted struct {
+	BaseDomainEvent
+	RequestID       string        `json:"request_id"`
+	Provider        string        `json:"provider"`
+	Model           string        `json:"model"`
+	TokensUsed      int           `json:"tokens_used"`
+	Cost            float64       `json:"cost"`
+	ResponseTime    time.Duration `json:"response_time"`
+	EmbeddingCount  int           `json:"embedding_count"`
+	Dimensions      int           `json:"dimensions"`
+}
+
+type EmbeddingRequestFailed struct {
+	BaseDomainEvent
+	RequestID    string        `json:"request_id"`
+	Provider     string        `json:"provider"`
+	Model        string        `json:"model"`
+	Error        string        `json:"error"`
+	ErrorType    string        `json:"error_type"`
+	ResponseTime time.Duration `json:"response_time"`
+}
+
+type PromptTemplateCreated struct {
+	BaseDomainEvent
+	TemplateID  string   `json:"template_id"`
+	TenantID    TenantID `json:"tenant_id"`
+	Name        string   `json:"name"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
+	CreatedBy   UserID   `json:"created_by"`
+	IsPublic    bool     `json:"is_public"`
+}
+
+type PromptTemplateUsed struct {
+	BaseDomainEvent
+	TemplateID string   `json:"template_id"`
+	TenantID   TenantID `json:"tenant_id"`
+	UserID     UserID   `json:"user_id"`
+	Variables  map[string]interface{} `json:"variables"`
+	RequestID  string   `json:"request_id"`
+}
+
+type ProviderHealthChanged struct {
+	BaseDomainEvent
+	Provider     string  `json:"provider"`
+	OldStatus    string  `json:"old_status"`
+	NewStatus    string  `json:"new_status"`
+	Latency      float64 `json:"latency_ms"`
+	ErrorRate    float64 `json:"error_rate"`
+	CheckedAt    time.Time `json:"checked_at"`
+}
+
+type ModelRegistered struct {
+	BaseDomainEvent
+	ModelID      string   `json:"model_id"`
+	Provider     string   `json:"provider"`
+	Name         string   `json:"name"`
+	Capabilities []string `json:"capabilities"`
+	ContextLength int     `json:"context_length"`
+	Status       string   `json:"status"`
+}
+
+type ModelStatusChanged struct {
+	BaseDomainEvent
+	ModelID   string `json:"model_id"`
+	Provider  string `json:"provider"`
+	OldStatus string `json:"old_status"`
+	NewStatus string `json:"new_status"`
+	Reason    string `json:"reason"`
+}
+
+type CacheEntryCreated struct {
+	BaseDomainEvent
+	CacheKey    string        `json:"cache_key"`
+	TenantID    TenantID      `json:"tenant_id"`
+	RequestHash string        `json:"request_hash"`
+	TTL         time.Duration `json:"ttl"`
+	TokensSaved int           `json:"tokens_saved"`
+	CostSaved   float64       `json:"cost_saved"`
+}
+
+type CacheEntryHit struct {
+	BaseDomainEvent
+	CacheKey    string   `json:"cache_key"`
+	TenantID    TenantID `json:"tenant_id"`
+	RequestID   string   `json:"request_id"`
+	TokensSaved int      `json:"tokens_saved"`
+	CostSaved   float64  `json:"cost_saved"`
+	HitCount    int      `json:"hit_count"`
+}
+
+type RateLimitExceeded struct {
+	BaseDomainEvent
+	TenantID       TenantID `json:"tenant_id"`
+	UserID         UserID   `json:"user_id"`
+	LimitType      string   `json:"limit_type"`
+	CurrentUsage   int      `json:"current_usage"`
+	Limit          int      `json:"limit"`
+	ResetTime      time.Time `json:"reset_time"`
+	RequestDropped bool     `json:"request_dropped"`
+}
+
+type TokenQuotaWarning struct {
+	BaseDomainEvent
+	TenantID       TenantID `json:"tenant_id"`
+	CurrentUsage   int      `json:"current_usage"`
+	Quota          int      `json:"quota"`
+	PercentageUsed float64  `json:"percentage_used"`
+	Period         string   `json:"period"`
+}
+
+type TokenQuotaExceeded struct {
+	BaseDomainEvent
+	TenantID     TenantID `json:"tenant_id"`
+	CurrentUsage int      `json:"current_usage"`
+	Quota        int      `json:"quota"`
+	Period       string   `json:"period"`
+	ActionsBlocked []string `json:"actions_blocked"`
+}
+
 // Utility functions for event serialization
 func SerializeEvent(event DomainEvent) ([]byte, error) {
 	return json.Marshal(event)
@@ -328,4 +495,21 @@ var EventRegistry = map[string]func() DomainEvent{
 	"IncidentDetected":                 func() DomainEvent { return &IncidentDetected{} },
 	"IncidentResolved":                 func() DomainEvent { return &IncidentResolved{} },
 	"SLOViolated":                      func() DomainEvent { return &SLOViolated{} },
+	// QLens Events
+	"LLMRequestSubmitted":              func() DomainEvent { return &LLMRequestSubmitted{} },
+	"LLMRequestCompleted":              func() DomainEvent { return &LLMRequestCompleted{} },
+	"LLMRequestFailed":                 func() DomainEvent { return &LLMRequestFailed{} },
+	"EmbeddingRequestSubmitted":        func() DomainEvent { return &EmbeddingRequestSubmitted{} },
+	"EmbeddingRequestCompleted":        func() DomainEvent { return &EmbeddingRequestCompleted{} },
+	"EmbeddingRequestFailed":           func() DomainEvent { return &EmbeddingRequestFailed{} },
+	"PromptTemplateCreated":            func() DomainEvent { return &PromptTemplateCreated{} },
+	"PromptTemplateUsed":               func() DomainEvent { return &PromptTemplateUsed{} },
+	"ProviderHealthChanged":            func() DomainEvent { return &ProviderHealthChanged{} },
+	"ModelRegistered":                  func() DomainEvent { return &ModelRegistered{} },
+	"ModelStatusChanged":               func() DomainEvent { return &ModelStatusChanged{} },
+	"CacheEntryCreated":                func() DomainEvent { return &CacheEntryCreated{} },
+	"CacheEntryHit":                    func() DomainEvent { return &CacheEntryHit{} },
+	"RateLimitExceeded":                func() DomainEvent { return &RateLimitExceeded{} },
+	"TokenQuotaWarning":                func() DomainEvent { return &TokenQuotaWarning{} },
+	"TokenQuotaExceeded":               func() DomainEvent { return &TokenQuotaExceeded{} },
 }

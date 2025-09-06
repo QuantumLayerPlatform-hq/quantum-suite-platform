@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quantum-system
+  labels:
+    name: quantum-system
+    istio-injection: enabled
+    environment: production

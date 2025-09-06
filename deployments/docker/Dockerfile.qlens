@@ -1,0 +1,49 @@
+# Build stage
+FROM golang:1.21-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o bin/qlens \
+    ./cmd/qlens
+
+# Final stage
+FROM scratch
+
+# Copy certificates for HTTPS requests to external APIs
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy timezone data
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# Copy the binary
+COPY --from=builder /app/bin/qlens /qlens
+
+# Create a non-root user (this is just for documentation, scratch doesn't support users)
+# The Kubernetes security context will handle this
+
+# Expose port
+EXPOSE 8105
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/qlens", "health"] || exit 1
+
+# Set the binary as the entrypoint
+ENTRYPOINT ["/qlens"]

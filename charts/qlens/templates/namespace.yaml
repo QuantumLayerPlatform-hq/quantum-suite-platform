@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace }}
+  labels:
+    {{- include "qlens.labels" . | nindent 4 }}
+    name: {{ .Values.namespace }}
+    environment: {{ .Values.environment }}
+    {{- if .Values.istio.enabled }}
+    istio-injection: enabled
+    {{- else }}
+    istio-injection: disabled
+    {{- end }}
+  annotations:
+    {{- if .Values.costControls.enabled }}
+    cost-controls/enabled: "true"
+    cost-controls/daily-limit: {{ .Values.costControls.dailyLimits.total | quote }}
+    {{- end }}
+    {{- if .Values.monitoring.enabled }}
+    monitoring/enabled: "true"
+    {{- end }}

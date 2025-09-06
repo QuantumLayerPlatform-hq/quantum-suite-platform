@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qlens-config
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: config
+data:
+  ENVIRONMENT: "development"  # Will be overridden by overlays
+  LOG_LEVEL: "info"
+  ISTIO_ENABLED: "false"      # Will be overridden by overlays
+  AUTH_ENABLED: "false"       # Will be overridden by overlays
+  CACHE_TYPE: "memory"
+  # Timeout and retry configuration
+  DEFAULT_TIMEOUT: "30s"
+  MAX_RETRIES: "3"
+  RETRY_BACKOFF: "1s"
+  # Metrics configuration
+  METRICS_ENABLED: "true"
+  TRACING_ENABLED: "false"

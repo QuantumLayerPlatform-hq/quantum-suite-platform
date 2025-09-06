@@ -1,0 +1,78 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: qlens-canary-vs
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: canary
+spec:
+  hosts:
+  - "qlens-staging.quantum-suite.com"
+  gateways:
+  - qlens-gateway
+  http:
+  # Canary deployment: 90% to stable, 10% to canary
+  - match:
+    - uri:
+        prefix: /v1
+    route:
+    - destination:
+        host: qlens-gateway.quantum-system.svc.cluster.local
+        port:
+          number: 8105
+        subset: v1
+      weight: 90
+    - destination:
+        host: qlens-gateway.quantum-system.svc.cluster.local
+        port:
+          number: 8105
+        subset: canary
+      weight: 10
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+    fault:
+      delay:
+        percentage:
+          value: 0.5  # 0.5% chaos testing in staging
+        fixedDelay: 3s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: qlens-gateway-canary-dr
+  namespace: quantum-system
+  labels:
+    app.kubernetes.io/name: qlens-gateway
+    app.kubernetes.io/component: canary
+spec:
+  host: qlens-gateway.quantum-system.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 10s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 2
+        maxRetries: 3
+  subsets:
+  - name: v1
+    labels:
+      version: v1.0.0
+  - name: canary
+    labels:
+      version: canary
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 50  # Limit canary traffic
+        http:
+          http1MaxPendingRequests: 25
+          http2MaxRequests: 50

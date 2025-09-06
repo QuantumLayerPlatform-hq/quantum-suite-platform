@@ -1,0 +1,136 @@
+# Staging environment overrides
+environment: staging
+namespace: qlens-staging
+
+# Replica counts for staging (lower scale)
+replicaCount:
+  gateway: 1
+  router: 1
+  cache: 1
+
+# Resources for staging (reduced)
+resources:
+  gateway:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  router:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  cache:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Autoscaling disabled for staging
+autoscaling:
+  enabled: false
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    gateway: 8080
+    router: 8081
+    cache: 8082
+  # Istio service mesh annotations
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+
+# Ingress disabled (using Istio Gateway instead)
+ingress:
+  enabled: false
+
+# Cost controls for staging ($100 daily limit)
+costControls:
+  enabled: true
+  dailyLimits:
+    total: 100
+    perTenant: 20
+    perUser: 5
+  alertThresholds: [50, 75, 90]
+
+# Cache configuration (memory-based for staging)
+cache:
+  enabled: true
+  type: memory
+  ttl: 300
+  maxSize: 1000
+
+# Health checks (faster for staging)
+healthChecks:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Monitoring enabled
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 10s
+
+# Istio enabled for staging (unified access)
+istio:
+  enabled: true
+  injection: true
+  gateway:
+    enabled: true
+    name: qlens-unified-gateway
+    namespace: istio-system
+  virtualServices:
+    enabled: true
+  destinationRules:
+    enabled: true
+    trafficPolicy:
+      tls:
+        mode: ISTIO_MUTUAL
+
+# External secrets disabled (using direct secrets)
+externalSecrets:
+  enabled: false
+
+# Logging configuration
+logging:
+  level: debug
+  format: json
+  structured: true
+
+# Authentication (disabled for staging simplicity)
+auth:
+  enabled: false
+
+# Rate limiting (relaxed for staging)
+rateLimit:
+  enabled: true
+  global:
+    requestsPerMinute: 1000
+    tokensPerHour: 100000
+  perTenant:
+    requestsPerMinute: 100
+    tokensPerHour: 10000
+  perUser:
+    requestsPerMinute: 50
+    tokensPerHour: 5000

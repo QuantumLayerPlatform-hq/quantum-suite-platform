@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quantum-system
+  labels:
+    name: quantum-system
+    app.kubernetes.io/part-of: quantum-suite
+    istio-injection: disabled  # Will be overridden in staging/production
