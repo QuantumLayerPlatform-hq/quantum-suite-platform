@@ -15,7 +15,7 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(GIT_COMMIT) -X main.buildTime=$(BUILD_TIME)
 
 # Docker configuration
-REGISTRY := ghcr.io/quantumlayerplatform/quantumlayerplatform
+REGISTRY := ghcr.io/quantumlayerplatform-hq/quantum-suite-platform
 DOCKER_PLATFORMS := linux/amd64,linux/arm64
 
 # Directories

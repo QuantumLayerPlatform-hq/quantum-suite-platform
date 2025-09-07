@@ -9,6 +9,11 @@
 bin/
 dist/
 
+# Compiled Go binaries
+qlens-gateway
+qlens-router  
+qlens-cache
+
 # Test binary, built with `go test -c`
 *.test
 
