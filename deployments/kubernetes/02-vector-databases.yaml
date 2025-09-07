@@ -60,9 +60,6 @@ spec:
         volumeMounts:
         - name: qdrant-data
           mountPath: /qdrant/storage
-        - name: qdrant-config
-          mountPath: /qdrant/config/production.yaml
-          subPath: production.yaml
         resources:
           requests:
             memory: "512Mi"
@@ -82,10 +79,7 @@ spec:
             port: 6333
           initialDelaySeconds: 45
           periodSeconds: 10
-      volumes:
-      - name: qdrant-config
-        configMap:
-          name: qdrant-config
+      volumes: []
   volumeClaimTemplates:
   - metadata:
       name: qdrant-data
@@ -121,18 +115,13 @@ data:
         deleted_threshold: 0.2
         vacuum_min_vector_number: 1000
         default_segment_number: 0
-        max_segment_size: null
-        memmap_threshold: null
         indexing_threshold: 20000
         flush_interval_sec: 5
-        max_optimization_threads: null
       hnsw_index:
         m: 16
         ef_construct: 100
-        full_scan_threshold: 10000
         max_indexing_threads: 0
         on_disk: false
-        payload_m: null
       quantization:
         scalar:
           type: int8
@@ -211,7 +200,7 @@ spec:
         - name: CLUSTER_HOSTNAME
           value: "weaviate"
         - name: CLUSTER_DATA_BIND_PORT
-          value: "7946"
+          value: "7101"
         - name: CLUSTER_GOSSIP_BIND_PORT
           value: "7100"
         - name: PROMETHEUS_MONITORING_ENABLED
