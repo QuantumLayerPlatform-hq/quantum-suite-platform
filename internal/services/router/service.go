@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quantum-suite/platform/internal/domain"
 	"github.com/quantum-suite/platform/internal/providers"
+	"github.com/quantum-suite/platform/internal/services/cost"
 	"github.com/quantum-suite/platform/pkg/shared/env"
 	shared_errors "github.com/quantum-suite/platform/pkg/shared/errors"
 	"github.com/quantum-suite/platform/pkg/shared/logger"
@@ -30,6 +32,7 @@ type Service struct {
 	healthChecker     *HealthChecker
 	loadBalancer      *LoadBalancer
 	circuitBreaker    *CircuitBreaker
+	costService       *cost.CostService
 	mu                sync.RWMutex
 }
 
@@ -80,6 +83,20 @@ func (s *Service) initializeComponents() error {
 	// Initialize health checker
 	s.healthChecker = NewHealthChecker(s.providerClients, s.logger)
 	s.healthChecker.Start()
+
+	// Initialize cost service with default budget configuration
+	budgetConfig := &cost.BudgetConfiguration{
+		GlobalDailyLimit:   1000.0, // $1000 per day
+		GlobalMonthlyLimit: 20000.0, // $20k per month
+		TenantDailyLimit:   50.0,    // $50 per tenant per day
+		TenantMonthlyLimit: 1000.0,  // $1k per tenant per month
+		ServiceLimits: map[string]float64{
+			"chatbot":     200.0,  // $200/day for chatbot service
+			"analytics":   100.0,  // $100/day for analytics
+			"automation":  300.0,  // $300/day for automation
+		},
+	}
+	s.costService = cost.NewCostService(s.logger, budgetConfig)
 
 	// Load model registry
 	if err := s.loadModelRegistry(); err != nil {
@@ -138,22 +155,39 @@ func (s *Service) createProviderClient(provider domain.Provider, config env.Prov
 		azureConfig := providers.AzureOpenAIConfig{
 			Endpoint:    config.BaseURL,
 			APIKey:      config.APIKey,
-			APIVersion:  "",  // Will use default
-			Deployments: make(map[string]string),  // Empty for now
+			APIVersion:  "2024-02-15-preview",  // Stable API version
+			Deployments: map[string]string{
+				"gpt-35-turbo":    "gpt-35-turbo-0125",
+				"gpt-4":           "gpt-4-turbo-2024-04-09", 
+				"gpt-4o":          "gpt-4o-2024-05-13",
+				"gpt-4o-mini":     "gpt-4o-mini-2024-07-18",
+				"gpt-5":           "gpt-5-2025-08-07",
+				"gpt-5-mini":      "gpt-5-mini-2025-08-07",
+			},
 		}
 		return providers.NewAzureOpenAIClient(azureConfig, s.logger.WithField("provider", string(provider)))
 		
 	case domain.ProviderAWSBedrock:
 		models := []providers.BedrockModelConfig{
 			{
+				ID:      "claude-3.7-sonnet",
+				ModelID: "anthropic.claude-3-7-sonnet-20250219-v1:0",
+				Name:    "Claude 3.7 Sonnet",
+			},
+			{
 				ID:      "claude-3-sonnet",
 				ModelID: "anthropic.claude-3-sonnet-20240229-v1:0",
 				Name:    "Claude 3 Sonnet",
 			},
+			{
+				ID:      "claude-3-haiku",
+				ModelID: "anthropic.claude-3-haiku-20240307-v1:0",
+				Name:    "Claude 3 Haiku",
+			},
 		}
 		
 		bedrockConfig := providers.AWSBedrockConfig{
-			Region:          "us-east-1",  // Default region
+			Region:          os.Getenv("AWS_REGION"),  // Read from environment
 			AccessKeyID:     config.APIKey,  // Using APIKey field
 			SecretAccessKey: "",  // Will be loaded from env
 			SessionToken:    "",
@@ -212,6 +246,11 @@ func (s *Service) setupRouter() {
 		api.POST("/completions/stream", s.handleRouteCompletionStream)
 		api.POST("/embeddings", s.handleRouteEmbedding)
 		api.GET("/models", s.handleListModels)
+		
+		// Cost and usage analytics endpoints
+		api.GET("/usage/global", s.handleGetGlobalUsage)
+		api.GET("/usage/tenant/:tenant_id", s.handleGetTenantUsage)
+		api.GET("/costs/summary", s.handleGetCostSummary)
 	}
 }
 
@@ -347,6 +386,8 @@ func (s *Service) handleReadiness(c *gin.Context) {
 // Core routing logic
 
 func (s *Service) routeCompletion(ctx context.Context, req *domain.CompletionRequest) (*domain.CompletionResponse, error) {
+	start := time.Now() // Track request timing
+	
 	// Generate cache key if caching is enabled
 	var cacheKey string
 	if req.CacheEnabled {
@@ -365,6 +406,17 @@ func (s *Service) routeCompletion(ctx context.Context, req *domain.CompletionReq
 		return nil, shared_errors.ProviderUnavailableError(string(provider))
 	}
 
+	// Check budget compliance before making expensive API call
+	estimatedCost := s.estimateRequestCost(req.Model, req.MaxTokens)
+	if err := s.costService.CheckBudgetCompliance(req.TenantID, estimatedCost); err != nil {
+		s.logger.Warn("Budget compliance check failed",
+			logger.F("tenant_id", req.TenantID),
+			logger.F("estimated_cost", estimatedCost),
+			logger.F("error", err),
+		)
+		return nil, err
+	}
+
 	// Route to provider with retry logic
 	client := s.providerClients[provider]
 	result, err := s.executeWithRetry(ctx, func() (interface{}, error) {
@@ -379,12 +431,84 @@ func (s *Service) routeCompletion(ctx context.Context, req *domain.CompletionReq
 
 	s.circuitBreaker.RecordSuccess(provider)
 
+	// Track cost and usage
+	if err := s.trackRequestCost(ctx, req, response, provider, time.Since(start)); err != nil {
+		s.logger.Warn("Failed to track request cost", logger.F("error", err))
+	}
+
 	// Cache response if enabled
 	if req.CacheEnabled && cacheKey != "" {
 		// TODO: Cache the response
 	}
 
 	return response, nil
+}
+
+// trackRequestCost records cost and usage metrics for a completed request
+func (s *Service) trackRequestCost(ctx context.Context, req *domain.CompletionRequest, response *domain.CompletionResponse, provider domain.Provider, duration time.Duration) error {
+	// Extract service name from context or headers
+	serviceName := s.extractServiceName(ctx)
+	
+	// Create cost tracking request
+	costReq := &cost.CostTrackingRequest{
+		TenantID:      req.TenantID,
+		ServiceName:   serviceName,
+		ModelID:       req.Model,
+		Provider:      provider,
+		Cost:          response.Usage.CostUSD,
+		TokensUsed:    int64(response.Usage.TotalTokens),
+		LatencyMs:     float64(duration.Milliseconds()),
+		Success:       true,
+		RequestID:     response.ID,
+		Timestamp:     time.Now(),
+	}
+
+	return s.costService.TrackRequest(ctx, costReq)
+}
+
+// extractServiceName attempts to get the calling service name from context or headers
+func (s *Service) extractServiceName(ctx context.Context) string {
+	// Try to get from context
+	if serviceName, ok := ctx.Value("service_name").(string); ok {
+		return serviceName
+	}
+
+	// Try to get from user agent or custom headers (if available)
+	// This would be set by consuming services
+	return "unknown_service"
+}
+
+// estimateRequestCost provides rough cost estimation for budget compliance
+func (s *Service) estimateRequestCost(modelID string, maxTokens *int) float64 {
+	// Default values if not specified
+	tokens := 100 // Conservative default
+	if maxTokens != nil && *maxTokens > 0 {
+		tokens = *maxTokens
+	}
+
+	// Rough cost estimates per 1000 tokens (input + output combined)
+	costPer1000Tokens := map[string]float64{
+		"claude-3.7-sonnet": 0.018, // $0.018 per 1K tokens
+		"claude-3-sonnet":   0.018,
+		"claude-3-haiku":    0.00175, // Much cheaper
+		"gpt-5":             0.030,   // Premium pricing
+		"gpt-5-mini":        0.020,
+		"gpt-4o":            0.020,
+		"gpt-4o-mini":       0.00075,
+		"gpt-4":             0.090,   // Higher cost
+		"gpt-35-turbo":      0.0035,  // Most economical
+	}
+
+	// Get cost per 1000 tokens for the model
+	cost, exists := costPer1000Tokens[modelID]
+	if !exists {
+		cost = 0.020 // Default to moderate cost
+	}
+
+	// Estimate total cost (assume 50/50 split input/output)
+	estimatedCost := float64(tokens) * cost / 1000.0
+
+	return estimatedCost
 }
 
 func (s *Service) routeCompletionStream(ctx context.Context, req *domain.CompletionRequest, c *gin.Context) error {
@@ -675,4 +799,50 @@ func getStringFromMap(config map[string]interface{}, key string) string {
 		return value
 	}
 	return ""
+}
+// Cost and usage analytics handlers
+
+func (s *Service) handleGetGlobalUsage(c *gin.Context) {
+	stats := s.costService.GetGlobalUsage()
+	c.JSON(http.StatusOK, stats)
+}
+
+func (s *Service) handleGetTenantUsage(c *gin.Context) {
+	tenantID := domain.TenantID(c.Param("tenant_id"))
+	if tenantID == "" {
+		s.respondWithError(c, shared_errors.ValidationError("tenant_id is required", "tenant_id"))
+		return
+	}
+
+	period := c.DefaultQuery("period", "daily")
+	usage, err := s.costService.GetTenantUsage(tenantID, period)
+	if err != nil {
+		s.respondWithError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, usage)
+}
+
+func (s *Service) handleGetCostSummary(c *gin.Context) {
+	stats := s.costService.GetGlobalUsage()
+	
+	summary := map[string]interface{}{
+		"daily_cost": stats.TotalCostToday,
+		"request_count": stats.RequestCount,
+		"active_tenants": stats.ActiveTenants,
+		"active_services": stats.ActiveServices,
+		"budget_utilization_percent": stats.BudgetUtilization,
+		"last_updated": stats.LastUpdated,
+		"status": func() string {
+			if stats.BudgetUtilization > 90 {
+				return "critical"
+			} else if stats.BudgetUtilization > 75 {
+				return "warning"
+			}
+			return "healthy"
+		}(),
+	}
+	
+	c.JSON(http.StatusOK, summary)
 }

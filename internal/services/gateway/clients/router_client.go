@@ -13,6 +13,43 @@ import (
 	"github.com/quantum-suite/platform/pkg/shared/logger"
 )
 
+// Usage analytics response types (defined here to avoid import cycles)
+type GlobalUsageStats struct {
+	TotalCostToday    float64 `json:"total_cost_today"`
+	RequestCount      int64   `json:"request_count"`
+	ActiveTenants     int     `json:"active_tenants"`
+	ActiveServices    int     `json:"active_services"`
+	BudgetUtilization float64 `json:"budget_utilization_percent"`
+	LastUpdated       string  `json:"last_updated"`
+}
+
+type TenantUsageStats struct {
+	TenantID        string                     `json:"tenant_id"`
+	DailyCost       float64                    `json:"daily_cost"`
+	MonthlyCost     float64                    `json:"monthly_cost"`
+	RequestCount    int64                      `json:"request_count"`
+	ModelUsage      map[string]ModelUsageStats `json:"model_usage"`
+	BudgetLimit     float64                    `json:"budget_limit"`
+	LastUpdated     string                     `json:"last_updated"`
+}
+
+type ModelUsageStats struct {
+	RequestCount    int64   `json:"request_count"`
+	TokensUsed      int64   `json:"tokens_used"`
+	Cost            float64 `json:"cost"`
+	AvgLatency      float64 `json:"avg_latency_ms"`
+}
+
+type CostSummaryStats struct {
+	DailyCost                 float64 `json:"daily_cost"`
+	RequestCount              int64   `json:"request_count"`
+	ActiveTenants             int     `json:"active_tenants"`
+	ActiveServices            int     `json:"active_services"`
+	BudgetUtilizationPercent  float64 `json:"budget_utilization_percent"`
+	Status                    string  `json:"status"`
+	LastUpdated               string  `json:"last_updated"`
+}
+
 // HTTPRouterClient implements RouterClient interface using HTTP calls
 type HTTPRouterClient struct {
 	baseURL string
@@ -268,6 +305,93 @@ func (c *HTTPRouterClient) HealthCheck(ctx context.Context) (*domain.HealthRespo
 	}
 
 	return &healthResp, nil
+}
+
+// GetGlobalUsage retrieves global usage statistics from router
+func (c *HTTPRouterClient) GetGlobalUsage(ctx context.Context) (*GlobalUsageStats, error) {
+	url := fmt.Sprintf("%s/internal/v1/usage/global", c.baseURL)
+	
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, errors.InternalError("failed to create request", err)
+	}
+	
+	// Send request
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return nil, errors.InternalError("router request failed", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleHTTPError(resp)
+	}
+	
+	var stats GlobalUsageStats
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, errors.InternalError("failed to decode response", err)
+	}
+	
+	return &stats, nil
+}
+
+// GetTenantUsage retrieves usage statistics for a specific tenant from router
+func (c *HTTPRouterClient) GetTenantUsage(ctx context.Context, tenantID string, period string) (*TenantUsageStats, error) {
+	url := fmt.Sprintf("%s/internal/v1/usage/tenant/%s?period=%s", c.baseURL, tenantID, period)
+	
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, errors.InternalError("failed to create request", err)
+	}
+	
+	// Send request
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return nil, errors.InternalError("router request failed", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleHTTPError(resp)
+	}
+	
+	var stats TenantUsageStats
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, errors.InternalError("failed to decode response", err)
+	}
+	
+	return &stats, nil
+}
+
+// GetCostSummary retrieves cost summary statistics from router
+func (c *HTTPRouterClient) GetCostSummary(ctx context.Context) (*CostSummaryStats, error) {
+	url := fmt.Sprintf("%s/internal/v1/costs/summary", c.baseURL)
+	
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, errors.InternalError("failed to create request", err)
+	}
+	
+	// Send request
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return nil, errors.InternalError("router request failed", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleHTTPError(resp)
+	}
+	
+	var stats CostSummaryStats
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, errors.InternalError("failed to decode response", err)
+	}
+	
+	return &stats, nil
 }
 
 // handleHTTPError converts HTTP errors to QLens errors

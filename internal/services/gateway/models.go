@@ -56,6 +56,7 @@ type ChatCompletionRequest struct {
 type Message struct {
 	Role    string `json:"role" example:"user" enums:"system,user,assistant"`
 	Content string `json:"content" example:"Hello, how are you?"`
+	Name    string `json:"name,omitempty" example:"assistant"`
 } // @name Message
 
 type ChatCompletionResponse struct {
@@ -135,6 +136,43 @@ type Usage struct {
 	CompletionTokens int `json:"completion_tokens,omitempty" example:"12"`
 	TotalTokens      int `json:"total_tokens" example:"21"`
 } // @name Usage
+
+// Usage analytics response models
+type GlobalUsageStats struct {
+	TotalCostToday    float64 `json:"total_cost_today" example:"12.45"`
+	RequestCount      int64   `json:"request_count" example:"1247"`
+	ActiveTenants     int     `json:"active_tenants" example:"42"`
+	ActiveServices    int     `json:"active_services" example:"8"`
+	BudgetUtilization float64 `json:"budget_utilization_percent" example:"62.3"`
+	LastUpdated       string  `json:"last_updated" example:"2025-09-07T17:15:00Z"`
+} // @name GlobalUsageStats
+
+type TenantUsageStats struct {
+	TenantID        string                     `json:"tenant_id" example:"tenant-123"`
+	DailyCost       float64                    `json:"daily_cost" example:"5.67"`
+	MonthlyCost     float64                    `json:"monthly_cost" example:"156.78"`
+	RequestCount    int64                      `json:"request_count" example:"234"`
+	ModelUsage      map[string]ModelUsageStats `json:"model_usage"`
+	BudgetLimit     float64                    `json:"budget_limit" example:"50.0"`
+	LastUpdated     string                     `json:"last_updated" example:"2025-09-07T17:15:00Z"`
+} // @name TenantUsageStats
+
+type ModelUsageStats struct {
+	RequestCount    int64   `json:"request_count" example:"45"`
+	TokensUsed      int64   `json:"tokens_used" example:"12450"`
+	Cost            float64 `json:"cost" example:"2.34"`
+	AvgLatency      float64 `json:"avg_latency_ms" example:"850.5"`
+} // @name ModelUsageStats
+
+type CostSummaryStats struct {
+	DailyCost                 float64 `json:"daily_cost" example:"12.45"`
+	RequestCount              int64   `json:"request_count" example:"1247"`
+	ActiveTenants             int     `json:"active_tenants" example:"42"`
+	ActiveServices            int     `json:"active_services" example:"8"`
+	BudgetUtilizationPercent  float64 `json:"budget_utilization_percent" example:"62.3"`
+	Status                    string  `json:"status" example:"healthy" enums:"healthy,warning,critical"`
+	LastUpdated               string  `json:"last_updated" example:"2025-09-07T17:15:00Z"`
+} // @name CostSummaryStats
 
 // Metrics models
 type MetricsResponse struct {

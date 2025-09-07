@@ -92,8 +92,8 @@ func NewCircuitBreaker(log logger.Logger) *CircuitBreaker {
 	return &CircuitBreaker{
 		logger:    log.WithField("component", "circuit_breaker"),
 		states:    make(map[domain.Provider]*CircuitState),
-		threshold: 5,              // 5 failures
-		timeout:   30 * time.Second, // 30 seconds
+		threshold: 2,              // 2 failures for faster circuit breaking on throttling
+		timeout:   2 * time.Minute, // 2 minutes for throttling recovery
 	}
 }
 
@@ -196,7 +196,7 @@ func (hc *HealthChecker) Stop() {
 func (hc *HealthChecker) healthCheckLoop() {
 	defer hc.wg.Done()
 	
-	ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
+	ticker := time.NewTicker(5 * time.Minute) // Check every 5 minutes to reduce API quota usage
 	defer ticker.Stop()
 
 	// Initial health check

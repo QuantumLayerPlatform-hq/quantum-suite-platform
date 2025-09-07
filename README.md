@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge)](https://github.com/QuantumLayerPlatform-hq/quantum-suite-platform/actions)
 [![Deployment](https://img.shields.io/badge/Deployment-Production%20Ready-success?style=for-the-badge)](./INFRASTRUCTURE_STATUS.md)
-[![Version](https://img.shields.io/badge/Version-1.0.2-blue?style=for-the-badge)](./VERSION)
+[![Version](https://img.shields.io/badge/Version-1.0.9-blue?style=for-the-badge)](./VERSION)
 [![Infrastructure](https://img.shields.io/badge/Infrastructure-K8s%20Deployed-success?style=for-the-badge)](./INFRASTRUCTURE_STATUS.md)
 [![Documentation](https://img.shields.io/badge/Docs-Available-blue?style=for-the-badge)](https://github.com/QuantumLayerPlatform-hq/quantum-docs)
 
@@ -195,6 +195,41 @@ quantum workflow start --type code-generation --params config.yaml
 - 🔄 Automated disaster recovery
 - 📏 Compliance policy enforcement
 - 💰 Cost optimization and governance
+
+## 🤖 QLens LLM Gateway
+
+**Enterprise-grade LLM gateway with comprehensive cost management and usage analytics**
+
+QLens is the central LLM service that provides:
+
+### 🎯 Key Features
+- **Multi-Provider Support**: AWS Bedrock (Claude 3.7, Claude 3, Haiku) + Azure OpenAI (GPT-4, GPT-5)
+- **Real-time Cost Tracking**: Per-request cost calculation with $0.00018 precision
+- **Usage Analytics**: Tenant-level billing, model usage breakdowns, performance metrics
+- **Budget Management**: Daily/monthly limits with proactive compliance checking
+- **Enterprise Security**: Multi-tenant isolation, API authentication, audit trails
+
+### 📊 Usage Analytics API
+
+Access comprehensive usage statistics through REST endpoints:
+
+```bash
+# Get tenant usage and cost breakdown
+curl "http://192.168.1.240/v1/usage?scope=tenant" \
+  -H "X-API-Key: your-key" -H "X-Tenant-ID: your-tenant"
+
+# Get system-wide cost summary  
+curl "http://192.168.1.240/v1/usage?scope=summary" \
+  -H "X-API-Key: your-key" -H "X-Tenant-ID: your-tenant"
+```
+
+### 🏗️ Architecture
+- **Gateway**: Public API with OpenAI-compatible endpoints
+- **Router**: Intelligent load balancing and provider failover
+- **Cost Service**: Real-time budget tracking and analytics
+- **Istio Mesh**: Production-ready service mesh with unified access
+
+📖 **[Complete Usage Analytics Documentation →](./docs/USAGE_ANALYTICS.md)**
 
 ## 🛠️ Technology Stack
 

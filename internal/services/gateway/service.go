@@ -34,6 +34,11 @@ type RouterClient interface {
 	RouteEmbedding(ctx context.Context, req *domain.EmbeddingRequest) (*domain.EmbeddingResponse, error)
 	ListModels(ctx context.Context, opts *domain.ListModelsOptions) (*domain.ModelsResponse, error)
 	HealthCheck(ctx context.Context) (*domain.HealthResponse, error)
+	
+	// Usage and cost analytics
+	GetGlobalUsage(ctx context.Context) (*clients.GlobalUsageStats, error)
+	GetTenantUsage(ctx context.Context, tenantID string, period string) (*clients.TenantUsageStats, error)
+	GetCostSummary(ctx context.Context) (*clients.CostSummaryStats, error)
 }
 
 // CacheClient defines the interface for caching operations
@@ -371,28 +376,36 @@ func (s *Service) handleCreateCompletion(c *gin.Context) {
 	ctx := c.Request.Context()
 	start := time.Now()
 	
-	var req domain.CompletionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// First bind to external API format (OpenAI compatible)
+	var externalReq ChatCompletionRequest
+	if err := c.ShouldBindJSON(&externalReq); err != nil {
 		s.respondWithError(c, errors.ValidationError("invalid request format", "body"))
 		return
 	}
 	
+	// Convert to internal domain format
+	req, err := s.convertToDomainRequest(&externalReq)
+	if err != nil {
+		s.respondWithError(c, err)
+		return
+	}
+	
 	// Enrich request with context
-	s.enrichCompletionRequest(&req, c)
+	s.enrichCompletionRequest(req, c)
 	
 	// Validate request
-	if err := s.validateCompletionRequest(&req); err != nil {
+	if err := s.validateCompletionRequest(req); err != nil {
 		s.respondWithError(c, err)
 		return
 	}
 	
 	// Handle streaming vs non-streaming
 	if req.Stream {
-		s.handleStreamingCompletion(ctx, &req, c)
+		s.handleStreamingCompletion(ctx, req, c)
 		return
 	}
 	
-	response, err := s.routerClient.RouteCompletion(ctx, &req)
+	response, err := s.routerClient.RouteCompletion(ctx, req)
 	duration := time.Since(start)
 	
 	if err != nil {
@@ -492,12 +505,49 @@ func (s *Service) handleCreateEmbeddings(c *gin.Context) {
 }
 
 func (s *Service) handleGetUsage(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"error": gin.H{
-			"type":    "not_implemented",
-			"message": "Usage statistics not yet implemented",
-		},
-	})
+	ctx := c.Request.Context()
+	tenantID := c.GetString("tenant_id")
+	
+	// Get query parameters
+	scope := c.DefaultQuery("scope", "tenant")
+	period := c.DefaultQuery("period", "daily")
+	
+	switch scope {
+	case "global":
+		// Global usage (admin only) 
+		stats, err := s.routerClient.GetGlobalUsage(ctx)
+		if err != nil {
+			s.respondWithError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, stats)
+		
+	case "tenant":
+		// Current tenant's usage
+		if tenantID == "" {
+			s.respondWithError(c, errors.ValidationError("tenant context required", "tenant_id"))
+			return
+		}
+		
+		stats, err := s.routerClient.GetTenantUsage(ctx, tenantID, period)
+		if err != nil {
+			s.respondWithError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, stats)
+		
+	case "summary":
+		// Cost summary
+		stats, err := s.routerClient.GetCostSummary(ctx)
+		if err != nil {
+			s.respondWithError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, stats)
+		
+	default:
+		s.respondWithError(c, errors.ValidationError("invalid scope parameter", "scope"))
+	}
 }
 
 func (s *Service) handleMetrics(c *gin.Context) {
@@ -541,6 +591,68 @@ func (s *Service) enrichEmbeddingRequest(req *domain.EmbeddingRequest, c *gin.Co
 	if priority := c.GetHeader("X-Priority"); priority != "" {
 		req.Priority = domain.Priority(strings.ToLower(priority))
 	}
+}
+
+func (s *Service) convertToDomainRequest(external *ChatCompletionRequest) (*domain.CompletionRequest, error) {
+	// Convert messages from external format (string content) to internal format (ContentPart array)
+	messages := make([]domain.Message, len(external.Messages))
+	for i, msg := range external.Messages {
+		// Convert string content to ContentPart array
+		contentParts := []domain.ContentPart{
+			{
+				Type: domain.ContentTypeText,
+				Text: msg.Content,
+			},
+		}
+		
+		messages[i] = domain.Message{
+			Role:    domain.MessageRole(msg.Role),
+			Content: contentParts,
+			Name:    msg.Name,
+		}
+	}
+	
+	// Convert the request - handle pointer types for optional fields
+	var maxTokens *int
+	if external.MaxTokens > 0 {
+		maxTokens = &external.MaxTokens
+	}
+	
+	var temperature *float64
+	if external.Temperature > 0 {
+		temperature = &external.Temperature
+	}
+	
+	var topP *float64
+	if external.TopP > 0 {
+		topP = &external.TopP
+	}
+	
+	var presencePenalty *float64
+	if external.PresencePenalty != 0 {
+		presencePenalty = &external.PresencePenalty
+	}
+	
+	var frequencyPenalty *float64
+	if external.FrequencyPenalty != 0 {
+		frequencyPenalty = &external.FrequencyPenalty
+	}
+	
+	req := &domain.CompletionRequest{
+		Model:            external.Model,
+		Messages:         messages,
+		MaxTokens:        maxTokens,
+		Temperature:      temperature,
+		TopP:             topP,
+		Stream:           external.Stream,
+		Stop:             external.Stop,
+		PresencePenalty:  presencePenalty,
+		FrequencyPenalty: frequencyPenalty,
+		User:             external.User,
+		Priority:         domain.PriorityMedium, // Default priority
+	}
+	
+	return req, nil
 }
 
 func (s *Service) validateCompletionRequest(req *domain.CompletionRequest) error {

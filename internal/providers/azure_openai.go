@@ -3,9 +3,11 @@ package providers
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -133,6 +135,26 @@ var azureOpenAIModelPricing = map[string]domain.ModelPricing{
 		OutputTokenCost: 0,
 		Unit:           "token",
 	},
+	"gpt-4o": {
+		InputTokenCost:  0.000005,
+		OutputTokenCost: 0.000015,
+		Unit:           "token",
+	},
+	"gpt-4o-mini": {
+		InputTokenCost:  0.00000015,
+		OutputTokenCost: 0.0000006,
+		Unit:           "token",
+	},
+	"gpt-5": {
+		InputTokenCost:  0.00001,  // Premium pricing for GPT-5
+		OutputTokenCost: 0.00003,
+		Unit:           "token",
+	},
+	"gpt-5-mini": {
+		InputTokenCost:  0.000005,
+		OutputTokenCost: 0.000015,
+		Unit:           "token",
+	},
 }
 
 func NewAzureOpenAIClient(config AzureOpenAIConfig, logger logger.Logger) (*AzureOpenAIClient, error) {
@@ -153,12 +175,35 @@ func NewAzureOpenAIClient(config AzureOpenAIConfig, logger logger.Logger) (*Azur
 		return nil, errors.ConfigurationError("azure openai endpoint and api key are required")
 	}
 
+	// Create production-grade HTTP client with connection pooling and DNS caching
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second, // Connection timeout
+			KeepAlive: 30 * time.Second, // Keep-alive for connection reuse
+			DualStack: true,             // IPv4/IPv6 dual stack
+		}).DialContext,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: false,
+			MinVersion:         tls.VersionTLS12,
+		},
+		MaxIdleConns:        100,              // Max idle connections
+		MaxIdleConnsPerHost: 10,               // Max idle connections per host
+		IdleConnTimeout:     90 * time.Second, // Idle connection timeout
+		TLSHandshakeTimeout: 10 * time.Second, // TLS handshake timeout
+		ExpectContinueTimeout: 1 * time.Second,
+		ResponseHeaderTimeout: 20 * time.Second, // Response header timeout
+		DisableKeepAlives:     false,            // Enable keep-alives
+		DisableCompression:    false,            // Enable compression
+		ForceAttemptHTTP2:     true,             // Prefer HTTP/2
+	}
+
 	client := &AzureOpenAIClient{
 		endpoint:   strings.TrimRight(config.Endpoint, "/"),
 		apiKey:     config.APIKey,
 		apiVersion: config.APIVersion,
 		httpClient: &http.Client{
-			Timeout: azureOpenAITimeout,
+			Timeout:   azureOpenAITimeout,
+			Transport: transport,
 		},
 		logger: logger,
 		models: generateModelList(config.Deployments),
@@ -356,26 +401,58 @@ func (c *AzureOpenAIClient) ListModels(ctx context.Context) ([]domain.Model, err
 }
 
 func (c *AzureOpenAIClient) HealthCheck(ctx context.Context) error {
-	url := fmt.Sprintf("%s/openai/deployments?api-version=%s", c.endpoint, c.apiVersion)
+	url := fmt.Sprintf("%s/openai/models?api-version=%s", c.endpoint, c.apiVersion)
 	
-	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
+	// Implement retry with exponential backoff
+	maxRetries := 3
+	baseDelay := 100 * time.Millisecond
+	
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff: 100ms, 200ms, 400ms
+			delay := baseDelay * time.Duration(1<<(attempt-1))
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		
+		httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			continue // Retry on request creation failure
+		}
+
+		c.setHeaders(httpReq)
+
+		resp, err := c.httpClient.Do(httpReq)
+		if err != nil {
+			c.logger.Debug("Azure OpenAI health check attempt failed",
+				logger.F("attempt", attempt+1),
+				logger.F("error", err),
+			)
+			if attempt == maxRetries-1 {
+				return fmt.Errorf("health check failed after %d attempts: %w", maxRetries, err)
+			}
+			continue // Retry on network error
+		}
+		
+		resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			if attempt > 0 {
+				c.logger.Info("Azure OpenAI health check succeeded on retry",
+					logger.F("attempt", attempt+1),
+				)
+			}
+			return nil
+		}
+
+		// Don't retry on HTTP errors (4xx, 5xx) - they're likely persistent
+		return fmt.Errorf("health check failed with status %d", resp.StatusCode)
 	}
 
-	c.setHeaders(httpReq)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
-		return nil
-	}
-
-	return fmt.Errorf("health check failed with status %d", resp.StatusCode)
+	return fmt.Errorf("health check failed after %d attempts", maxRetries)
 }
 
 func (c *AzureOpenAIClient) convertCompletionRequest(req *domain.CompletionRequest) *azureOpenAIRequest {

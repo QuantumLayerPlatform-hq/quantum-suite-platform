@@ -99,6 +99,11 @@ const (
 )
 
 var bedrockModelPricing = map[string]domain.ModelPricing{
+	"anthropic.claude-3-7-sonnet-20250219-v1:0": {
+		InputTokenCost:  0.000003,  // Same as Claude 3 Sonnet
+		OutputTokenCost: 0.000015,
+		Unit:           "token",
+	},
 	"anthropic.claude-3-sonnet-20240229-v1:0": {
 		InputTokenCost:  0.000003,
 		OutputTokenCost: 0.000015,
@@ -134,8 +139,11 @@ func NewAWSBedrockClient(bedrockConfig AWSBedrockConfig, logger logger.Logger) (
 		bedrockConfig.SessionToken = os.Getenv("AWS_SESSION_TOKEN")
 	}
 
+	// Configure AWS SDK with production-grade settings
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion(bedrockConfig.Region),
+		config.WithRetryMaxAttempts(3),
+		config.WithRetryMode(aws.RetryModeAdaptive),
 	)
 	if err != nil {
 		return nil, errors.ConfigurationError("failed to load aws config: " + err.Error())
@@ -305,11 +313,82 @@ func (c *AWSBedrockClient) HealthCheck(ctx context.Context) error {
 		Body:        body,
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+	// Implement retry with exponential backoff for AWS Bedrock health check
+	maxRetries := 3
+	baseDelay := 200 * time.Millisecond
+	
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff: 200ms, 400ms, 800ms
+			delay := baseDelay * time.Duration(1<<(attempt-1))
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
 
-	_, err = c.client.InvokeModel(ctx, input)
-	return err
+		// Create a new timeout context for each attempt
+		attemptCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		
+		result, err := c.client.InvokeModel(attemptCtx, input)
+		cancel()
+		
+		if err != nil {
+			c.logger.Debug("AWS Bedrock health check attempt failed",
+				logger.F("attempt", attempt+1),
+				logger.F("model", modelID),
+				logger.F("error", err),
+			)
+			
+			// Don't retry on certain permanent errors, but handle throttling specially
+			errStr := err.Error()
+			if strings.Contains(errStr, "ValidationException") ||
+			   strings.Contains(errStr, "InvalidParameterException") ||
+			   strings.Contains(errStr, "ResourceNotFoundException") {
+				return fmt.Errorf("bedrock health check failed (non-retryable): %w", err)
+			}
+			
+			// For throttling, increase delay significantly
+			if strings.Contains(errStr, "ThrottlingException") || strings.Contains(errStr, "429") {
+				c.logger.Warn("AWS Bedrock throttling detected, using extended backoff",
+					logger.F("attempt", attempt+1),
+				)
+				// Skip immediate retry on throttling - wait for next health check cycle
+				if attempt < maxRetries-1 {
+					select {
+					case <-time.After(30 * time.Second):
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+				}
+			}
+			
+			if attempt == maxRetries-1 {
+				return fmt.Errorf("bedrock health check failed after %d attempts: %w", maxRetries, err)
+			}
+			continue // Retry on network errors, throttling, etc.
+		}
+
+		// Success - validate the response
+		if result != nil && len(result.Body) > 0 {
+			if attempt > 0 {
+				c.logger.Info("AWS Bedrock health check succeeded on retry",
+					logger.F("attempt", attempt+1),
+					logger.F("model", modelID),
+				)
+			}
+			return nil
+		}
+		
+		// Unexpected empty response, but don't fail immediately
+		c.logger.Warn("AWS Bedrock returned empty response on health check",
+			logger.F("attempt", attempt+1),
+			logger.F("model", modelID),
+		)
+	}
+
+	return fmt.Errorf("bedrock health check failed after %d attempts", maxRetries)
 }
 
 func (c *AWSBedrockClient) convertCompletionRequest(req *domain.CompletionRequest) *claudeRequest {
