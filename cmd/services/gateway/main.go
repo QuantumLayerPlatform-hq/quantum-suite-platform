@@ -26,19 +26,10 @@ func main() {
 	}
 
 	// Initialize environment configuration
-	config, err := env.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load configuration: %v\n", err)
-		os.Exit(1)
-	}
+	config := env.DetectEnvironment()
 
 	// Initialize logger
-	log := logger.New(logger.Config{
-		Level:      logger.Level(config.Logging.Level),
-		Format:     config.Logging.Format,
-		Structured: config.Logging.Structured,
-		Service:    serviceName,
-	})
+	log := logger.NewFromEnv()
 
 	log.Info("Starting QLens Gateway Service",
 		logger.F("version", config.Version),

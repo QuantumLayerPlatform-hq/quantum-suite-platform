@@ -29,7 +29,7 @@ GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 
 # QLens Services
-SERVICES := gateway router cache
+SERVICES := qlens-gateway qlens-router qlens-cache
 MODULES := $(SERVICES)
 
 # Docker image prefix
@@ -183,8 +183,8 @@ build: ## Build all QLens services
 	@echo "$(BLUE)Building QLens services...$(NC)"
 	@mkdir -p bin
 	@for service in $(SERVICES); do \
-		echo "$(YELLOW)Building qlens-$$service...$(NC)"; \
-		go build -ldflags "$(LDFLAGS)" -o bin/qlens-$$service ./cmd/$$service; \
+		echo "$(YELLOW)Building $$service...$(NC)"; \
+		go build -ldflags "$(LDFLAGS)" -o bin/$$service ./cmd/$$service; \
 	done
 	@echo "$(GREEN)All QLens services built successfully!$(NC)"
 
@@ -290,18 +290,19 @@ db-reset: ## Reset database (WARNING: destructive)
 docker-build: ## Build Docker images for all QLens services
 	@echo "$(BLUE)Building QLens Docker images...$(NC)"
 	@for service in $(SERVICES); do \
-		echo "$(YELLOW)Building Docker image for qlens-$$service:$(VERSION)...$(NC)"; \
-		docker build -t $(REGISTRY)/qlens-$$service:$(VERSION) -f Dockerfile.$$service .; \
-		docker tag $(REGISTRY)/qlens-$$service:$(VERSION) $(REGISTRY)/qlens-$$service:latest; \
+		short_name=$${service#qlens-}; \
+		echo "$(YELLOW)Building Docker image for $$service:$(VERSION)...$(NC)"; \
+		docker build -t $(REGISTRY)/$$service:$(VERSION) -f Dockerfile.$$short_name .; \
+		docker tag $(REGISTRY)/$$service:$(VERSION) $(REGISTRY)/$$service:latest; \
 	done
 	@echo "$(GREEN)QLens Docker images built successfully!$(NC)"
 
 docker-push: docker-build ## Push Docker images to registry
 	@echo "$(BLUE)Pushing QLens Docker images...$(NC)"
 	@for service in $(SERVICES); do \
-		echo "$(YELLOW)Pushing qlens-$$service:$(VERSION)...$(NC)"; \
-		docker push $(REGISTRY)/qlens-$$service:$(VERSION); \
-		docker push $(REGISTRY)/qlens-$$service:latest; \
+		echo "$(YELLOW)Pushing $$service:$(VERSION)...$(NC)"; \
+		docker push $(REGISTRY)/$$service:$(VERSION); \
+		docker push $(REGISTRY)/$$service:latest; \
 	done
 	@echo "$(GREEN)QLens Docker images pushed successfully!$(NC)"
 

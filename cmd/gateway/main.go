@@ -39,18 +39,10 @@ import (
 // @description Tenant identifier for multi-tenancy
 func main() {
 	// Load configuration
-	config, err := env.Load()
-	if err != nil {
-		fmt.Printf("Failed to load configuration: %v\n", err)
-		os.Exit(1)
-	}
+	config := env.DetectEnvironment()
 
 	// Initialize logger
-	log := logger.New(logger.Config{
-		Level:  config.LogLevel,
-		Format: "json",
-		Output: "stdout",
-	})
+	log := logger.NewFromEnv()
 
 	// Set Gin mode based on environment
 	if config.Environment == "production" {
@@ -60,7 +52,7 @@ func main() {
 	// Create gateway service
 	gatewayService, err := gateway.NewService(config, log)
 	if err != nil {
-		log.Fatal("Failed to create gateway service", "error", err)
+		log.Fatal("Failed to create gateway service", logger.F("error", err))
 	}
 
 	// Setup routes with Swagger
@@ -78,12 +70,12 @@ func main() {
 	// Start server in goroutine
 	go func() {
 		log.Info("Starting QLens Gateway", 
-			"port", config.Port,
-			"environment", config.Environment,
-			"version", getVersion())
+			logger.F("port", config.Port),
+			logger.F("environment", config.Environment),
+			logger.F("version", getVersion()))
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Failed to start server", "error", err)
+			log.Fatal("Failed to start server", logger.F("error", err))
 		}
 	}()
 
@@ -99,7 +91,7 @@ func main() {
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown", "error", err)
+		log.Fatal("Server forced to shutdown", logger.F("error", err))
 	}
 
 	log.Info("Server exiting")
