@@ -223,8 +223,17 @@ func (s *Service) authenticationMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Skip authentication entirely if auth is disabled
+		if !s.config.AuthEnabled {
+			// Set default values for downstream services that expect them
+			c.Set("user_id", "anonymous")
+			c.Set("tenant_id", "default")
+			c.Next()
+			return
+		}
+
 		// In Istio environments, authentication is handled by the mesh
-		if s.config.IstioEnabled && s.config.AuthEnabled {
+		if s.config.IstioEnabled {
 			// FIXED: Validate Istio headers properly - don't trust blindly
 			userID := c.GetHeader("X-Remote-User")
 			if userID == "" || !s.isValidUserID(userID) {
@@ -270,6 +279,12 @@ func (s *Service) tenantValidationMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Skip for health endpoints
 		if strings.HasPrefix(c.Request.URL.Path, "/health") {
+			c.Next()
+			return
+		}
+
+		// Skip tenant validation if auth is disabled (already set in auth middleware)
+		if !s.config.AuthEnabled {
 			c.Next()
 			return
 		}

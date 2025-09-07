@@ -1,0 +1,100 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: qlens-simple-gateway
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: qlens-simple-vs
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: qlens
+    app.kubernetes.io/component: virtualservice
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - qlens-simple-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /health
+    route:
+    - destination:
+        host: qlens-gateway.staging.svc.cluster.local
+        port:
+          number: 8105
+    timeout: 10s
+    headers:
+      response:
+        add:
+          x-served-by: "istio-gateway"
+  - match:
+    - uri:
+        prefix: /v1
+    route:
+    - destination:
+        host: qlens-gateway.staging.svc.cluster.local
+        port:
+          number: 8105
+    timeout: 120s
+    headers:
+      response:
+        add:
+          x-served-by: "istio-gateway"
+  - match:
+    - uri:
+        prefix: /swagger
+    route:
+    - destination:
+        host: qlens-gateway.staging.svc.cluster.local
+        port:
+          number: 8105
+    timeout: 30s
+    headers:
+      response:
+        add:
+          x-served-by: "istio-swagger"
+  - match:
+    - uri:
+        prefix: /docs
+    rewrite:
+      uri: /swagger/index.html
+    route:
+    - destination:
+        host: qlens-gateway.staging.svc.cluster.local
+        port:
+          number: 8105
+    timeout: 30s
+    headers:
+      response:
+        add:
+          x-served-by: "istio-swagger"
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: qlens-gateway.staging.svc.cluster.local
+        port:
+          number: 8105
+    timeout: 30s
+    headers:
+      response:
+        add:
+          x-served-by: "istio-gateway"

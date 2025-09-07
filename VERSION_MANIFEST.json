@@ -1,0 +1,32 @@
+{
+  "version": "1.0.5",
+  "timestamp": "2025-09-07T13:42:07Z",
+  "git_commit": "c72779268b623c164a30fb2961eb5cc0279b7d59",
+  "git_branch": "main",
+  "artifacts": {
+    "helm_chart": {
+      "version": "1.0.5",
+      "app_version": "1.0.5"
+    },
+    "docker_images": [
+      "ghcr.io/quantumlayerplatform/quantumlayerplatform/qlens-gateway:1.0.5",
+      "ghcr.io/quantumlayerplatform/quantumlayerplatform/qlens-router:1.0.5",
+      "ghcr.io/quantumlayerplatform/quantumlayerplatform/qlens-cache:1.0.5"
+    ],
+    "components": {
+      "gateway": "1.0.5",
+      "router": "1.0.5",
+      "cache": "1.0.5",
+      "providers": {
+        "azure_openai": "1.0.5",
+        "aws_bedrock": "1.0.5"
+      }
+    }
+  },
+  "compatibility": {
+    "kubernetes": ">=1.24.0",
+    "helm": ">=3.8.0",
+    "go": ">=1.21.0"
+  },
+  "checksums": {}
+}

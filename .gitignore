@@ -48,6 +48,12 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Istio distribution (should be downloaded, not stored in repo)
+istio-*/
+
+# Cluster backups (local backups, not for version control)
+cluster-backup-*/
+
 # Logs
 logs/
 *.log

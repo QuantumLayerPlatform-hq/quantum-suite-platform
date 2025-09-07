@@ -33,7 +33,7 @@ func NewHTTPRouterClient(baseURL string, log logger.Logger) *HTTPRouterClient {
 
 // RouteCompletion sends completion request to router service
 func (c *HTTPRouterClient) RouteCompletion(ctx context.Context, req *domain.CompletionRequest) (*domain.CompletionResponse, error) {
-	url := fmt.Sprintf("%s/completions", c.baseURL)
+	url := fmt.Sprintf("%s/internal/v1/completions", c.baseURL)
 	
 	// Convert to JSON
 	jsonData, err := json.Marshal(req)
@@ -85,7 +85,7 @@ func (c *HTTPRouterClient) RouteCompletionStream(ctx context.Context, req *domai
 	// Set stream flag
 	req.Stream = true
 	
-	url := fmt.Sprintf("%s/completions", c.baseURL)
+	url := fmt.Sprintf("%s/internal/v1/completions", c.baseURL)
 	
 	// Convert to JSON
 	jsonData, err := json.Marshal(req)
@@ -148,7 +148,7 @@ func (c *HTTPRouterClient) RouteCompletionStream(ctx context.Context, req *domai
 
 // RouteEmbedding sends embedding request to router service
 func (c *HTTPRouterClient) RouteEmbedding(ctx context.Context, req *domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
-	url := fmt.Sprintf("%s/embeddings", c.baseURL)
+	url := fmt.Sprintf("%s/internal/v1/embeddings", c.baseURL)
 	
 	// Convert to JSON
 	jsonData, err := json.Marshal(req)
@@ -192,7 +192,7 @@ func (c *HTTPRouterClient) RouteEmbedding(ctx context.Context, req *domain.Embed
 
 // ListModels gets available models from router service
 func (c *HTTPRouterClient) ListModels(ctx context.Context, opts *domain.ListModelsOptions) (*domain.ModelsResponse, error) {
-	url := fmt.Sprintf("%s/models", c.baseURL)
+	url := fmt.Sprintf("%s/internal/v1/models", c.baseURL)
 	
 	// Create HTTP request
 	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)

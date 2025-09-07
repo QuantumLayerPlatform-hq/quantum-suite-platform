@@ -2,8 +2,8 @@ apiVersion: v2
 name: qlens
 description: QLens - LLM Gateway Service with Azure OpenAI and AWS Bedrock support
 type: application
-version: 0.1.0
-appVersion: "1.0.0"
+version: 1.0.5
+appVersion: "1.0.5"
 
 keywords:
   - llm
