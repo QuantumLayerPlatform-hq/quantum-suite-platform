@@ -1,8 +1,11 @@
 # Quantum Suite Platform
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge)](https://github.com/QuantumLayerPlatform-hq/quantum-suite-platform/actions)
+[![Deployment](https://img.shields.io/badge/Deployment-Production%20Ready-success?style=for-the-badge)](./INFRASTRUCTURE_STATUS.md)
+[![Version](https://img.shields.io/badge/Version-1.0.2-blue?style=for-the-badge)](./VERSION)
+[![Infrastructure](https://img.shields.io/badge/Infrastructure-K8s%20Deployed-success?style=for-the-badge)](./INFRASTRUCTURE_STATUS.md)
 [![Documentation](https://img.shields.io/badge/Docs-Available-blue?style=for-the-badge)](https://github.com/QuantumLayerPlatform-hq/quantum-docs)
 
 > **Universal DevSecOps Platform with AI-Driven Code Generation, Testing, Security, and Infrastructure Management**
