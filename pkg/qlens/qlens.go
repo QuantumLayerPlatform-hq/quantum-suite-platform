@@ -7,16 +7,17 @@ import (
 	"time"
 
 	"github.com/quantum-suite/platform/internal/domain"
-	"github.com/quantum-suite/platform/pkg/qlens/providers"
+	qlensProvider "github.com/quantum-suite/platform/internal/providers/qlens"
+	"github.com/quantum-suite/platform/pkg/qlens-types"
 )
 
 // QLens is the main client that implements the Client interface
 type QLens struct {
 	mu        sync.RWMutex
-	config    *ClientConfig
+	config    *types.ClientConfig
 	router    Router
 	cache     Cache
-	providers map[domain.Provider]ProviderClient
+	providers map[domain.Provider]types.ProviderClient
 	metrics   *MetricsCollector
 	startTime time.Time
 }
@@ -32,7 +33,7 @@ func New(opts ...ClientOption) (*QLens, error) {
 	
 	client := &QLens{
 		config:    config,
-		providers: make(map[domain.Provider]ProviderClient),
+		providers: make(map[domain.Provider]types.ProviderClient),
 		startTime: time.Now(),
 	}
 	
@@ -58,7 +59,7 @@ func New(opts ...ClientOption) (*QLens, error) {
 }
 
 // CreateCompletion implements the Client interface
-func (q *QLens) CreateCompletion(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
+func (q *QLens) CreateCompletion(ctx context.Context, req *types.CompletionRequest) (*types.CompletionResponse, error) {
 	start := time.Now()
 	
 	// Set request ID if not provided
@@ -104,7 +105,7 @@ func (q *QLens) CreateCompletion(ctx context.Context, req *CompletionRequest) (*
 }
 
 // CreateCompletionStream implements the Client interface
-func (q *QLens) CreateCompletionStream(ctx context.Context, req *CompletionRequest) (<-chan StreamResponse, error) {
+func (q *QLens) CreateCompletionStream(ctx context.Context, req *types.CompletionRequest) (<-chan types.StreamResponse, error) {
 	start := time.Now()
 	
 	// Set request ID if not provided
@@ -147,7 +148,7 @@ func (q *QLens) CreateCompletionStream(ctx context.Context, req *CompletionReque
 }
 
 // CreateEmbeddings implements the Client interface
-func (q *QLens) CreateEmbeddings(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
+func (q *QLens) CreateEmbeddings(ctx context.Context, req *types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
 	start := time.Now()
 	
 	// Set request ID if not provided
@@ -188,8 +189,8 @@ func (q *QLens) CreateEmbeddings(ctx context.Context, req *EmbeddingRequest) (*E
 }
 
 // ListModels implements the Client interface
-func (q *QLens) ListModels(ctx context.Context, opts *ListModelsOptions) (*ModelsResponse, error) {
-	var allModels []Model
+func (q *QLens) ListModels(ctx context.Context, opts *types.ListModelsOptions) (*types.ModelsResponse, error) {
+	var allModels []types.Model
 	
 	q.mu.RLock()
 	providers := make([]domain.Provider, 0, len(q.providers))
@@ -226,14 +227,14 @@ func (q *QLens) ListModels(ctx context.Context, opts *ListModelsOptions) (*Model
 		allModels = append(allModels, models...)
 	}
 	
-	return &ModelsResponse{
+	return &types.ModelsResponse{
 		Object: "list",
 		Data:   allModels,
 	}, nil
 }
 
 // GetModel implements the Client interface
-func (q *QLens) GetModel(ctx context.Context, modelID string, provider domain.Provider) (*Model, error) {
+func (q *QLens) GetModel(ctx context.Context, modelID string, provider domain.Provider) (*types.Model, error) {
 	q.mu.RLock()
 	providerClient, exists := q.providers[provider]
 	q.mu.RUnlock()
@@ -246,13 +247,13 @@ func (q *QLens) GetModel(ctx context.Context, modelID string, provider domain.Pr
 }
 
 // HealthCheck implements the Client interface
-func (q *QLens) HealthCheck(ctx context.Context) (*HealthResponse, error) {
-	response := &HealthResponse{
+func (q *QLens) HealthCheck(ctx context.Context) (*types.HealthResponse, error) {
+	response := &types.HealthResponse{
 		Status:    "healthy",
 		Timestamp: time.Now(),
 		Version:   "1.0.0", // This should come from build info
 		Uptime:    time.Since(q.startTime),
-		Providers: make(map[domain.Provider]ProviderHealth),
+		Providers: make(map[domain.Provider]types.ProviderHealth),
 	}
 	
 	// Check each provider's health
@@ -266,7 +267,7 @@ func (q *QLens) HealthCheck(ctx context.Context) (*HealthResponse, error) {
 	for _, provider := range providers {
 		health, exists := q.router.GetProviderHealth(provider)
 		if !exists {
-			health = ProviderHealth{
+			health = types.ProviderHealth{
 				Status:        domain.ProviderHealthUnhealthy,
 				LatencyMS:     0,
 				ErrorRate:     1.0,
@@ -296,7 +297,7 @@ func (q *QLens) Close() error {
 			errors = append(errors, err)
 		}
 	}
-	q.providers = make(map[domain.Provider]ProviderClient)
+	q.providers = make(map[domain.Provider]types.ProviderClient)
 	q.mu.Unlock()
 	
 	// Close cache
@@ -331,12 +332,11 @@ func (q *QLens) initializeProviders() error {
 			continue
 		}
 		
-		var providerClient ProviderClient
-		var err error
+		var providerClient types.ProviderClient
 		
 		switch provider {
 		case domain.ProviderOpenAI:
-			providerClient = providers.NewOpenAIClient(config)
+			providerClient = qlensProvider.NewOpenAIClient(config)
 		case domain.ProviderAnthropic:
 			// TODO: Implement Anthropic client
 			continue
@@ -365,7 +365,7 @@ func (q *QLens) initializeProviders() error {
 }
 
 func (q *QLens) createCompletionFunc() CompletionFunc {
-	return func(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
+	return func(ctx context.Context, req *types.CompletionRequest) (*types.CompletionResponse, error) {
 		// Select provider
 		provider, err := q.router.SelectProvider(ctx, req)
 		if err != nil {
@@ -382,14 +382,14 @@ func (q *QLens) createCompletionFunc() CompletionFunc {
 		}
 		
 		// Make request with retry logic
-		return q.executeWithRetry(ctx, func() (*CompletionResponse, error) {
+		return q.executeWithRetry(ctx, func() (*types.CompletionResponse, error) {
 			return providerClient.CreateCompletion(ctx, req)
 		})
 	}
 }
 
 func (q *QLens) createEmbeddingFunc() EmbeddingFunc {
-	return func(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
+	return func(ctx context.Context, req *types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
 		// Select provider
 		provider, err := q.router.SelectEmbeddingProvider(ctx, req)
 		if err != nil {
@@ -406,13 +406,13 @@ func (q *QLens) createEmbeddingFunc() EmbeddingFunc {
 		}
 		
 		// Make request with retry logic
-		return q.executeEmbeddingWithRetry(ctx, func() (*EmbeddingResponse, error) {
+		return q.executeEmbeddingWithRetry(ctx, func() (*types.EmbeddingResponse, error) {
 			return providerClient.CreateEmbeddings(ctx, req)
 		})
 	}
 }
 
-func (q *QLens) executeWithRetry(ctx context.Context, fn func() (*CompletionResponse, error)) (*CompletionResponse, error) {
+func (q *QLens) executeWithRetry(ctx context.Context, fn func() (*types.CompletionResponse, error)) (*types.CompletionResponse, error) {
 	var lastErr error
 	
 	for attempt := 0; attempt <= q.config.MaxRetries; attempt++ {
@@ -442,7 +442,7 @@ func (q *QLens) executeWithRetry(ctx context.Context, fn func() (*CompletionResp
 	return nil, fmt.Errorf("request failed after %d attempts: %w", q.config.MaxRetries+1, lastErr)
 }
 
-func (q *QLens) executeEmbeddingWithRetry(ctx context.Context, fn func() (*EmbeddingResponse, error)) (*EmbeddingResponse, error) {
+func (q *QLens) executeEmbeddingWithRetry(ctx context.Context, fn func() (*types.EmbeddingResponse, error)) (*types.EmbeddingResponse, error) {
 	var lastErr error
 	
 	for attempt := 0; attempt <= q.config.MaxRetries; attempt++ {
@@ -473,7 +473,7 @@ func (q *QLens) executeEmbeddingWithRetry(ctx context.Context, fn func() (*Embed
 }
 
 func (q *QLens) isRetryableError(err error) bool {
-	if qlensErr, ok := err.(*QLensError); ok {
+	if qlensErr, ok := err.(*types.QLensError); ok {
 		for _, retryableType := range q.config.RetryableErrors {
 			if qlensErr.Type == retryableType {
 				return true
@@ -484,8 +484,8 @@ func (q *QLens) isRetryableError(err error) bool {
 	return false
 }
 
-func (q *QLens) filterModels(models []Model, opts *ListModelsOptions) []Model {
-	var filtered []Model
+func (q *QLens) filterModels(models []types.Model, opts *types.ListModelsOptions) []types.Model {
+	var filtered []types.Model
 	
 	for _, model := range models {
 		// Filter by capability
@@ -525,7 +525,7 @@ func generateRequestID() string {
 // NewWithOpenAI creates a QLens client configured for OpenAI
 func NewWithOpenAI(apiKey string, opts ...ClientOption) (*QLens, error) {
 	options := append([]ClientOption{
-		WithProvider(domain.ProviderOpenAI, ProviderConfig{
+		WithProvider(domain.ProviderOpenAI, types.ProviderConfig{
 			Provider: domain.ProviderOpenAI,
 			APIKey:   apiKey,
 			Enabled:  true,
@@ -541,7 +541,7 @@ func NewWithOpenAI(apiKey string, opts ...ClientOption) (*QLens, error) {
 // NewWithAnthropic creates a QLens client configured for Anthropic
 func NewWithAnthropic(apiKey string, opts ...ClientOption) (*QLens, error) {
 	options := append([]ClientOption{
-		WithProvider(domain.ProviderAnthropic, ProviderConfig{
+		WithProvider(domain.ProviderAnthropic, types.ProviderConfig{
 			Provider: domain.ProviderAnthropic,
 			APIKey:   apiKey,
 			Enabled:  true,
@@ -555,7 +555,7 @@ func NewWithAnthropic(apiKey string, opts ...ClientOption) (*QLens, error) {
 }
 
 // NewWithMultipleProviders creates a QLens client with multiple providers
-func NewWithMultipleProviders(providerConfigs map[domain.Provider]ProviderConfig, opts ...ClientOption) (*QLens, error) {
+func NewWithMultipleProviders(providerConfigs map[domain.Provider]types.ProviderConfig, opts ...ClientOption) (*QLens, error) {
 	var options []ClientOption
 	
 	for provider, config := range providerConfigs {

@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/quantum-suite/platform/internal/domain"
 	"github.com/quantum-suite/platform/pkg/qlens"
+	"github.com/quantum-suite/platform/pkg/qlens-types"
 )
 
 // Server represents the QLens HTTP server
@@ -106,7 +107,7 @@ func (s *Server) handleListModels(c *gin.Context) {
 	ctx := c.Request.Context()
 	
 	// Parse query parameters
-	opts := &qlens.ListModelsOptions{}
+	opts := &types.ListModelsOptions{}
 	
 	if provider := c.Query("provider"); provider != "" {
 		opts.Provider = domain.Provider(provider)
@@ -129,7 +130,7 @@ func (s *Server) handleListModels(c *gin.Context) {
 func (s *Server) handleCreateCompletion(c *gin.Context) {
 	ctx := c.Request.Context()
 	
-	var req qlens.CompletionRequest
+	var req types.CompletionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
@@ -160,7 +161,7 @@ func (s *Server) handleCreateCompletion(c *gin.Context) {
 }
 
 // Handle streaming completions
-func (s *Server) handleStreamingCompletion(ctx context.Context, req *qlens.CompletionRequest, c *gin.Context) {
+func (s *Server) handleStreamingCompletion(ctx context.Context, req *types.CompletionRequest, c *gin.Context) {
 	// Set headers for Server-Sent Events
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -211,7 +212,7 @@ func (s *Server) handleStreamingCompletion(ctx context.Context, req *qlens.Compl
 func (s *Server) handleCreateEmbeddings(c *gin.Context) {
 	ctx := c.Request.Context()
 	
-	var req qlens.EmbeddingRequest
+	var req types.EmbeddingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
@@ -281,7 +282,7 @@ func (s *Server) handleGetUsage(c *gin.Context) {
 
 // Helper methods
 
-func (s *Server) enrichRequestContext(req *qlens.CompletionRequest, c *gin.Context) {
+func (s *Server) enrichRequestContext(req *types.CompletionRequest, c *gin.Context) {
 	// Extract tenant ID from header
 	if tenantID := c.GetHeader("X-Tenant-ID"); tenantID != "" {
 		req.TenantID = domain.TenantID(tenantID)
@@ -316,7 +317,7 @@ func (s *Server) enrichRequestContext(req *qlens.CompletionRequest, c *gin.Conte
 	}
 }
 
-func (s *Server) enrichEmbeddingRequestContext(req *qlens.EmbeddingRequest, c *gin.Context) {
+func (s *Server) enrichEmbeddingRequestContext(req *types.EmbeddingRequest, c *gin.Context) {
 	// Extract tenant ID from header
 	if tenantID := c.GetHeader("X-Tenant-ID"); tenantID != "" {
 		req.TenantID = domain.TenantID(tenantID)
@@ -340,7 +341,7 @@ func (s *Server) enrichEmbeddingRequestContext(req *qlens.EmbeddingRequest, c *g
 
 func (s *Server) handleError(c *gin.Context, err error) {
 	// Convert QLens errors to HTTP responses
-	if qlensErr, ok := err.(*qlens.QLensError); ok {
+	if qlensErr, ok := err.(*types.QLensError); ok {
 		status := s.getHTTPStatusFromError(qlensErr.Type)
 		c.JSON(status, gin.H{
 			"error": gin.H{
@@ -367,19 +368,19 @@ func (s *Server) handleError(c *gin.Context, err error) {
 
 func (s *Server) getHTTPStatusFromError(errorType string) int {
 	switch errorType {
-	case qlens.ErrorTypeInvalidRequest:
+	case types.ErrorTypeInvalidRequest:
 		return http.StatusBadRequest
-	case qlens.ErrorTypeAuthenticationError:
+	case types.ErrorTypeAuthenticationError:
 		return http.StatusUnauthorized
-	case qlens.ErrorTypeAuthorizationError:
+	case types.ErrorTypeAuthorizationError:
 		return http.StatusForbidden
-	case qlens.ErrorTypeRateLimitExceeded:
+	case types.ErrorTypeRateLimitExceeded:
 		return http.StatusTooManyRequests
-	case qlens.ErrorTypeProviderError:
+	case types.ErrorTypeProviderError:
 		return http.StatusBadGateway
-	case qlens.ErrorTypeTimeout:
+	case types.ErrorTypeTimeout:
 		return http.StatusGatewayTimeout
-	case qlens.ErrorTypeProviderUnavailable:
+	case types.ErrorTypeProviderUnavailable:
 		return http.StatusServiceUnavailable
 	default:
 		return http.StatusInternalServerError
@@ -428,8 +429,7 @@ func main() {
 	log.Println("Shutting down QLens server...")
 	
 	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	// TODO: Implement proper HTTP server shutdown if using http.Server directly
 	
 	// Close QLens client
 	if err := client.Close(); err != nil {

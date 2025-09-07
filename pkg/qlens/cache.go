@@ -5,49 +5,16 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/quantum-suite/platform/internal/domain"
+	"github.com/quantum-suite/platform/pkg/qlens-types"
 )
 
-// Cache represents a caching interface for QLens
-type Cache interface {
-	// Get retrieves a cached response
-	Get(ctx context.Context, key string) (*CompletionResponse, bool)
-	
-	// Set stores a response in cache
-	Set(ctx context.Context, key string, response *CompletionResponse, ttl time.Duration) error
-	
-	// Delete removes a cached entry
-	Delete(ctx context.Context, key string) error
-	
-	// GetEmbedding retrieves cached embeddings
-	GetEmbedding(ctx context.Context, key string) (*EmbeddingResponse, bool)
-	
-	// SetEmbedding stores embeddings in cache
-	SetEmbedding(ctx context.Context, key string, response *EmbeddingResponse, ttl time.Duration) error
-	
-	// Clear removes all cached entries
-	Clear(ctx context.Context) error
-	
-	// Stats returns cache statistics
-	Stats() CacheStats
-	
-	// Close gracefully shuts down the cache
-	Close() error
-}
+// Cache interface is defined in interfaces.go
 
-// CacheStats represents cache statistics
-type CacheStats struct {
-	Size      int     `json:"size"`
-	Hits      int64   `json:"hits"`
-	Misses    int64   `json:"misses"`
-	HitRate   float64 `json:"hit_rate"`
-	Evictions int64   `json:"evictions"`
-}
 
 // CacheEntry represents a cached entry
 type CacheEntry struct {
@@ -66,7 +33,7 @@ type InMemoryCache struct {
 	mu          sync.RWMutex
 	entries     map[string]*CacheEntry
 	maxSize     int
-	stats       CacheStats
+	stats       types.CacheStats
 	stopCleanup chan struct{}
 	cleanupOnce sync.Once
 }
@@ -75,7 +42,7 @@ type InMemoryCache struct {
 type RedisCache struct {
 	client   RedisClient
 	keyPrefix string
-	stats     CacheStats
+	stats     types.CacheStats
 	mu        sync.RWMutex
 }
 
@@ -112,7 +79,7 @@ func NewRedisCache(client RedisClient, keyPrefix string) *RedisCache {
 
 // InMemoryCache implementation
 
-func (c *InMemoryCache) Get(ctx context.Context, key string) (*CompletionResponse, bool) {
+func (c *InMemoryCache) Get(ctx context.Context, key string) (*types.CompletionResponse, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	
@@ -138,7 +105,7 @@ func (c *InMemoryCache) Get(ctx context.Context, key string) (*CompletionRespons
 	entry.LastAccessed = time.Now()
 	c.stats.Hits++
 	
-	if response, ok := entry.Data.(*CompletionResponse); ok {
+	if response, ok := entry.Data.(*types.CompletionResponse); ok {
 		// Mark as cache hit
 		responseCopy := *response
 		responseCopy.CacheHit = true
@@ -149,7 +116,7 @@ func (c *InMemoryCache) Get(ctx context.Context, key string) (*CompletionRespons
 	return nil, false
 }
 
-func (c *InMemoryCache) Set(ctx context.Context, key string, response *CompletionResponse, ttl time.Duration) error {
+func (c *InMemoryCache) Set(ctx context.Context, key string, response *types.CompletionResponse, ttl time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	
@@ -186,7 +153,7 @@ func (c *InMemoryCache) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *InMemoryCache) GetEmbedding(ctx context.Context, key string) (*EmbeddingResponse, bool) {
+func (c *InMemoryCache) GetEmbedding(ctx context.Context, key string) (*types.EmbeddingResponse, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	
@@ -212,7 +179,7 @@ func (c *InMemoryCache) GetEmbedding(ctx context.Context, key string) (*Embeddin
 	entry.LastAccessed = time.Now()
 	c.stats.Hits++
 	
-	if response, ok := entry.Data.(*EmbeddingResponse); ok {
+	if response, ok := entry.Data.(*types.EmbeddingResponse); ok {
 		return response, true
 	}
 	
@@ -220,7 +187,7 @@ func (c *InMemoryCache) GetEmbedding(ctx context.Context, key string) (*Embeddin
 	return nil, false
 }
 
-func (c *InMemoryCache) SetEmbedding(ctx context.Context, key string, response *EmbeddingResponse, ttl time.Duration) error {
+func (c *InMemoryCache) SetEmbedding(ctx context.Context, key string, response *types.EmbeddingResponse, ttl time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	
@@ -257,25 +224,42 @@ func (c *InMemoryCache) Clear(ctx context.Context) error {
 	return nil
 }
 
-func (c *InMemoryCache) Stats() CacheStats {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	
-	stats := c.stats
-	stats.Size = len(c.entries)
-	
-	if stats.Hits+stats.Misses > 0 {
-		stats.HitRate = float64(stats.Hits) / float64(stats.Hits+stats.Misses)
-	}
-	
-	return stats
-}
 
 func (c *InMemoryCache) Close() error {
 	c.cleanupOnce.Do(func() {
 		close(c.stopCleanup)
 	})
 	return nil
+}
+
+// Configure implements the Cache interface for InMemoryCache
+func (c *InMemoryCache) Configure(config types.CacheConfig) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// Update configuration as needed
+	// For now, this is a placeholder
+	return nil
+}
+
+// HealthCheck implements the Cache interface for InMemoryCache
+func (c *InMemoryCache) HealthCheck(ctx context.Context) error {
+	// Check if cache is operational
+	return nil
+}
+
+// Stats implements the Cache interface for InMemoryCache
+func (c *InMemoryCache) Stats() types.CacheStats {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	
+	stats := c.stats
+	stats.Size = len(c.entries)
+	if stats.Hits+stats.Misses > 0 {
+		stats.HitRate = float64(stats.Hits) / float64(stats.Hits+stats.Misses)
+	}
+	
+	return stats
 }
 
 func (c *InMemoryCache) evictLRU() {
@@ -326,7 +310,7 @@ func (c *InMemoryCache) cleanup() {
 
 // RedisCache implementation
 
-func (c *RedisCache) Get(ctx context.Context, key string) (*CompletionResponse, bool) {
+func (c *RedisCache) Get(ctx context.Context, key string) (*types.CompletionResponse, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	
@@ -337,7 +321,7 @@ func (c *RedisCache) Get(ctx context.Context, key string) (*CompletionResponse, 
 		return nil, false
 	}
 	
-	var response CompletionResponse
+	var response types.CompletionResponse
 	if err := json.Unmarshal([]byte(data), &response); err != nil {
 		c.stats.Misses++
 		return nil, false
@@ -348,7 +332,7 @@ func (c *RedisCache) Get(ctx context.Context, key string) (*CompletionResponse, 
 	return &response, true
 }
 
-func (c *RedisCache) Set(ctx context.Context, key string, response *CompletionResponse, ttl time.Duration) error {
+func (c *RedisCache) Set(ctx context.Context, key string, response *types.CompletionResponse, ttl time.Duration) error {
 	fullKey := c.keyPrefix + ":" + key
 	
 	data, err := json.Marshal(response)
@@ -364,7 +348,7 @@ func (c *RedisCache) Delete(ctx context.Context, key string) error {
 	return c.client.Del(ctx, fullKey)
 }
 
-func (c *RedisCache) GetEmbedding(ctx context.Context, key string) (*EmbeddingResponse, bool) {
+func (c *RedisCache) GetEmbedding(ctx context.Context, key string) (*types.EmbeddingResponse, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	
@@ -375,7 +359,7 @@ func (c *RedisCache) GetEmbedding(ctx context.Context, key string) (*EmbeddingRe
 		return nil, false
 	}
 	
-	var response EmbeddingResponse
+	var response types.EmbeddingResponse
 	if err := json.Unmarshal([]byte(data), &response); err != nil {
 		c.stats.Misses++
 		return nil, false
@@ -385,7 +369,7 @@ func (c *RedisCache) GetEmbedding(ctx context.Context, key string) (*EmbeddingRe
 	return &response, true
 }
 
-func (c *RedisCache) SetEmbedding(ctx context.Context, key string, response *EmbeddingResponse, ttl time.Duration) error {
+func (c *RedisCache) SetEmbedding(ctx context.Context, key string, response *types.EmbeddingResponse, ttl time.Duration) error {
 	fullKey := c.keyPrefix + ":emb:" + key
 	
 	data, err := json.Marshal(response)
@@ -400,7 +384,7 @@ func (c *RedisCache) Clear(ctx context.Context) error {
 	return c.client.FlushAll(ctx)
 }
 
-func (c *RedisCache) Stats() CacheStats {
+func (c *RedisCache) Stats() types.CacheStats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	
@@ -416,10 +400,31 @@ func (c *RedisCache) Close() error {
 	return c.client.Close()
 }
 
+// Configure implements the Cache interface for RedisCache
+func (c *RedisCache) Configure(config types.CacheConfig) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// Update configuration as needed
+	// For now, this is a placeholder
+	return nil
+}
+
+// HealthCheck implements the Cache interface for RedisCache
+func (c *RedisCache) HealthCheck(ctx context.Context) error {
+	// Check Redis connection by attempting a simple operation
+	_, err := c.client.Get(ctx, "health_check")
+	// Ignore "key not found" errors as they indicate Redis is responsive
+	if err != nil && err.Error() != "redis: nil" {
+		return err
+	}
+	return nil
+}
+
 // Cache key generation
 
 // GenerateCompletionCacheKey creates a cache key for completion requests
-func GenerateCompletionCacheKey(req *CompletionRequest) string {
+func GenerateCompletionCacheKey(req *types.CompletionRequest) string {
 	// Create a normalized request for hashing
 	normalizedReq := struct {
 		Model            string              `json:"model"`
@@ -447,7 +452,7 @@ func GenerateCompletionCacheKey(req *CompletionRequest) string {
 }
 
 // GenerateEmbeddingCacheKey creates a cache key for embedding requests
-func GenerateEmbeddingCacheKey(req *EmbeddingRequest) string {
+func GenerateEmbeddingCacheKey(req *types.EmbeddingRequest) string {
 	// Create a normalized request for hashing
 	normalizedReq := struct {
 		Model          string   `json:"model"`
@@ -467,7 +472,7 @@ func GenerateEmbeddingCacheKey(req *EmbeddingRequest) string {
 }
 
 // ShouldCache determines if a request should be cached based on configuration
-func ShouldCache(req *CompletionRequest, config *ClientConfig) bool {
+func ShouldCache(req *types.CompletionRequest, config *types.ClientConfig) bool {
 	if !config.CacheEnabled {
 		return false
 	}
@@ -496,7 +501,7 @@ func ShouldCache(req *CompletionRequest, config *ClientConfig) bool {
 }
 
 // ShouldCacheEmbedding determines if an embedding request should be cached
-func ShouldCacheEmbedding(req *EmbeddingRequest, config *ClientConfig) bool {
+func ShouldCacheEmbedding(req *types.EmbeddingRequest, config *types.ClientConfig) bool {
 	if !config.CacheEnabled {
 		return false
 	}
@@ -510,9 +515,9 @@ func ShouldCacheEmbedding(req *EmbeddingRequest, config *ClientConfig) bool {
 }
 
 // CacheMiddleware wraps operations with caching logic
-func CacheMiddleware(cache Cache, config *ClientConfig) func(next CompletionFunc) CompletionFunc {
+func CacheMiddleware(cache Cache, config *types.ClientConfig) func(next CompletionFunc) CompletionFunc {
 	return func(next CompletionFunc) CompletionFunc {
-		return func(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
+		return func(ctx context.Context, req *types.CompletionRequest) (*types.CompletionResponse, error) {
 			// Check if caching is enabled for this request
 			if !ShouldCache(req, config) {
 				return next(ctx, req)
@@ -546,15 +551,15 @@ func CacheMiddleware(cache Cache, config *ClientConfig) func(next CompletionFunc
 }
 
 // CompletionFunc represents a completion function signature
-type CompletionFunc func(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error)
+type CompletionFunc func(ctx context.Context, req *types.CompletionRequest) (*types.CompletionResponse, error)
 
 // EmbeddingFunc represents an embedding function signature
-type EmbeddingFunc func(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error)
+type EmbeddingFunc func(ctx context.Context, req *types.EmbeddingRequest) (*types.EmbeddingResponse, error)
 
 // EmbeddingCacheMiddleware wraps embedding operations with caching logic
-func EmbeddingCacheMiddleware(cache Cache, config *ClientConfig) func(next EmbeddingFunc) EmbeddingFunc {
+func EmbeddingCacheMiddleware(cache Cache, config *types.ClientConfig) func(next EmbeddingFunc) EmbeddingFunc {
 	return func(next EmbeddingFunc) EmbeddingFunc {
-		return func(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
+		return func(ctx context.Context, req *types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
 			// Check if caching is enabled for this request
 			if !ShouldCacheEmbedding(req, config) {
 				return next(ctx, req)

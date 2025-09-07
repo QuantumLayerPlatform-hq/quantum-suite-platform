@@ -1,196 +1,129 @@
-# Claude Code Session Context
+# CLAUDE.md
 
-**Purpose:** Maintain context and momentum across Claude Code sessions for the QLens project.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🏗️ Project: QLens LLM Gateway Service
+## Project: QLens LLM Gateway Service
 
-**Repository:** `/home/satish/quantumlayerplatform`  
-**Current Version:** 1.0.0  
-**Architecture:** Microservices (Gateway, Router, Cache) with Istio Service Mesh  
-**Environments:** Staging (Local K8s), Production (Azure K8s)  
+This is a Go-based microservices platform that provides LLM gateway functionality as part of the larger Quantum Suite Platform. The primary component is QLens, which consists of Gateway, Router, and Cache services designed to run on Kubernetes with Istio service mesh.
 
-## 📋 Session Continuation Protocol
+## Essential Commands
 
-### **Start of New Session**
-
-1. **Read Project Status**
-   ```bash
-   cat PROGRESS.md | head -50    # Review current status
-   git log --oneline -10         # Check recent commits
-   make version                  # Check current version
-   ```
-
-2. **Environment Check**
-   ```bash
-   kubectl get nodes             # Verify K8s access
-   kubectl get ns | grep qlens   # Check QLens namespaces
-   make get-access-info          # Check service access
-   ```
-
-3. **Quick Health Check**
-   ```bash
-   make dev-status               # Check running services
-   make test                     # Verify tests pass
-   make lint                     # Check code quality
-   ```
-
-### **During Session**
-
-- Update `PROGRESS.md` for major milestones
-- Use TodoWrite tool to track current tasks
-- Document decisions in relevant files
-- Keep git commits small and descriptive
-
-### **End of Session**
-
-1. **Update Progress**
-   ```bash
-   # Update PROGRESS.md with completed items
-   # Note any blockers or next priorities
-   # Document session outcomes
-   ```
-
-2. **Clean Commit**
-   ```bash
-   git add .
-   git commit -m "session: [brief description of work]"
-   ```
-
-3. **Leave Context Notes**
-   - Update this file with current context
-   - Note any unfinished work
-   - Document next session priorities
-
-## 🎯 Current Context (Session of 2025-09-06)
-
-### **What We Just Completed:**
-1. ✅ **Swagger/OpenAPI Integration**: Full API documentation with interactive UI
-2. ✅ **Semantic Versioning System**: Automated version management across all artifacts
-3. ✅ **Unified Local Access**: MetalLB + Istio setup eliminates port-forwarding
-4. ✅ **Service Mesh Integration**: Complete Istio configuration with observability
-5. ✅ **Project Tracking System**: This progress tracking framework
-
-### **Current State:**
-- **Status**: 🟡 Compilation issues blocking development
-- **Priority**: Fix Go compilation errors in domain/events and shared/env packages
-- **Infrastructure**: MetalLB + Istio + QLens fully configured
-- **Access**: Unified gateway working (pending compilation fix)
-
-### **Immediate Blockers:**
+### Development Workflow
 ```bash
-# These compilation errors need fixing:
-# 1. internal/domain/events.go:491 - GoldenImageCreated interface issue
-# 2. internal/domain/qlens.go:6 - unused import github.com/google/uuid
-# 3. pkg/shared/env/detector.go:63 - Port redeclared
-# 4. pkg/shared/env/detector.go:156 - type mismatch int vs string
-# 5. pkg/shared/logger/logger.go:230 - withField vs WithField method
+# Setup and start development environment
+make dev-setup              # Install dependencies and verify environment
+make dev-up                 # Start local K8s staging with MetalLB + Istio
+make get-access-info        # Show service URLs and access information
+make dev-status             # Check running services status
+make dev-logs               # View development environment logs
+make dev-down               # Stop development environment
+
+# Run services locally (single service development)
+make run-local              # Run gateway locally with Swagger UI
+make docs-dev               # Generate docs and run gateway with UI
 ```
 
-### **Next Session Priorities:**
-1. 🔥 **P0**: Fix all compilation errors
-2. 🎯 **P1**: Test complete system end-to-end
-3. 🚀 **P1**: Deploy to staging with unified access
-4. 🔒 **P2**: Implement authentication system
-5. ⚡ **P2**: Add rate limiting
-
-## 🛠️ Key Commands & Patterns
-
-### **Development Workflow**
+### Build and Test
 ```bash
-# Standard development cycle
-make dev-up                   # Start everything locally
-make get-access-info          # Get service URLs
-make dev-logs                 # View logs
-make dev-down                 # Clean shutdown
+# Building
+make build                  # Build all QLens services (gateway, router, cache)
+make build-linux            # Build Linux binaries for production
+make clean                  # Clean build artifacts
+
+# Testing
+make test                   # Run all tests with coverage
+make test-unit              # Run unit tests only  
+make test-integration       # Run integration tests only
+make test-e2e               # Run end-to-end tests
+make test-coverage          # Generate HTML coverage report
+
+# Code Quality
+make lint                   # Run golangci-lint
+make fmt                    # Format code and tidy modules
+make security-scan          # Run gosec security scanning
 ```
 
-### **Testing & Quality**
+### Documentation and API
 ```bash
-make test                     # Run all tests
-make test-coverage            # Generate coverage report
-make lint                     # Code quality check
-make security-scan            # Security analysis
+make docs                   # Generate Swagger documentation
+make docs-serve             # Serve documentation on localhost:8080
 ```
 
-### **Version Management**
-```bash
-make version                  # Show current version
-make version-patch            # Increment patch (1.0.0 → 1.0.1)
-make version-minor            # Increment minor (1.0.0 → 1.1.0)
-make release-patch            # Full patch release process
-```
+## Architecture
 
-### **Deployment**
-```bash
-make deploy-staging           # Deploy to local K8s
-make deploy-production        # Deploy to Azure K8s
-make rollback-staging         # Rollback if needed
-```
+The system follows a microservices architecture with three core services:
 
-## 🏗️ Architecture Decisions Made
+- **Gateway Service** (`cmd/qlens-gateway/main.go`) - Main API gateway with Swagger documentation
+- **Router Service** (`cmd/qlens-router/main.go`) - Request routing and load balancing  
+- **Cache Service** (`cmd/qlens-cache/main.go`) - Redis-based caching layer
 
-1. **Microservices Pattern**: Gateway → Router → Cache
-2. **Service Mesh**: Istio for traffic management, security, observability  
-3. **Local Development**: MetalLB LoadBalancer + Istio Gateway (no port-forwarding)
-4. **Versioning**: Semantic versioning with automated script
-5. **Documentation**: Swagger/OpenAPI with interactive UI
-6. **Infrastructure**: Kubernetes-native with Helm charts
+Key architectural patterns:
+- **Microservices**: Gateway → Router → Cache flow
+- **Service Mesh**: Istio for traffic management and observability
+- **Local Development**: MetalLB LoadBalancer + Istio Gateway (eliminates port-forwarding)
+- **Documentation**: Swagger/OpenAPI with interactive UI
+- **Infrastructure**: Kubernetes-native with Helm charts
 
-## 📁 Important Files
+## Code Structure
 
-### **Core Application**
-- `cmd/gateway/main.go` - Main gateway service entry point
-- `internal/services/gateway/handlers.go` - Swagger-annotated handlers
-- `internal/services/gateway/models.go` - OpenAPI response models
-- `internal/domain/` - Core domain models and logic
+### Core Application Code
+- `cmd/` - Service entrypoints (main.go files)
+- `internal/` - Private application code
+  - `internal/domain/` - Domain models, entities, and events
+  - `internal/services/` - Business logic for gateway, router, cache
+  - `internal/providers/` - External LLM provider integrations (AWS Bedrock, Azure OpenAI)
+- `pkg/` - Public/shared packages
+  - `pkg/qlens/` - QLens client libraries and core functionality
+  - `pkg/shared/` - Shared utilities (logger, errors, env)
 
-### **Infrastructure**
-- `charts/qlens/` - Helm charts for deployment
-- `deployments/metallb/` - LoadBalancer configuration
-- `deployments/istio/local/` - Service mesh setup
-- `scripts/setup-local-access.sh` - Unified setup automation
-
-### **Configuration**
+### Infrastructure & Deployment
+- `charts/qlens/` - Helm charts with staging/production values
+- `deployments/` - MetalLB and Istio configurations
+- `scripts/` - Build automation and version management
 - `Makefile` - All automation commands
-- `scripts/version.sh` - Semantic versioning management
-- `go.mod` - Dependencies including Swagger tools
 
-### **Documentation**
-- `PROGRESS.md` - Project progress tracking
-- `docs/LOCAL_ACCESS.md` - Local development guide
-- `docs/swagger.json` - Generated OpenAPI specification
+### Dependencies
+The project uses:
+- **Web Framework**: Gin (github.com/gin-gonic/gin)
+- **Documentation**: Swag for Swagger generation
+- **Observability**: Prometheus, Zap logging
+- **Cloud**: AWS SDK v2, Azure integrations
+- **Caching**: Redis (github.com/redis/go-redis/v9)
 
-## 🔍 Debugging Tips
+## Development Context
 
-### **Common Issues**
-1. **Compilation Errors**: Check import statements and type definitions
-2. **Kubernetes Issues**: Verify namespace and service configurations
-3. **Service Mesh Issues**: Check Istio gateway and virtual service configs
-4. **LoadBalancer Issues**: Verify MetalLB IP pool and assignments
+### Current Issues
+The project has known compilation issues including:
+- Import cycle between pkg/qlens and pkg/qlens/providers
+- Missing imports and type mismatches in domain/events and shared packages
+- Method name inconsistencies (withField vs WithField)
 
-### **Quick Diagnostic Commands**
+### Version Management
+The project uses semantic versioning with automated scripts:
 ```bash
-# Check service health
-kubectl get pods -A | grep -E "(qlens|istio|metallb)"
-
-# Check Istio configuration
-kubectl get gateway,virtualservice -n istio-system
-
-# Check LoadBalancer status
-kubectl get svc istio-ingressgateway -n istio-system
-
-# View recent logs
-kubectl logs -f deployment/qlens-gateway -n qlens-staging --tail=50
+make version                # Show current version
+make version-patch          # Increment patch version
+make version-minor          # Increment minor version  
+make release-patch          # Full patch release process
 ```
 
-## 📈 Success Metrics
+### Local Development Setup
+The project uses MetalLB + Istio for unified local access without port-forwarding:
+- Services accessible via LoadBalancer IPs with .nip.io domains
+- Swagger UI available at http://swagger.{IP}.nip.io
+- Observability tools (Grafana, Kiali) integrated
 
-- **Code Quality**: 80%+ test coverage, linting passes
-- **Documentation**: All APIs documented with Swagger
-- **Developer Experience**: One-command setup, no port-forwarding
-- **Production Readiness**: Full observability, service mesh, automated versioning
+### Testing Strategy
+- Unit tests for individual components
+- Integration tests for service interactions
+- E2E tests in `tests/e2e/` directory
+- Performance tests in `tests/performance/`
+- Coverage reports generated in HTML format
 
----
+## Important Notes
 
-**Last Updated**: 2025-09-06 by Claude Code session  
-**Next Session**: Focus on fixing compilation errors and end-to-end testing
+- Always run `make lint` and `make test` before committing
+- Use `make dev-up` for full local Kubernetes environment
+- Check `make get-access-info` for current service URLs
+- The project is designed for Kubernetes deployment but services can run locally
+- Swagger documentation is automatically generated from code annotations

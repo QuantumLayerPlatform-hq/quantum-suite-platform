@@ -2,10 +2,10 @@ package qlens
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/quantum-suite/platform/internal/domain"
+	"github.com/quantum-suite/platform/pkg/qlens-types"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -97,7 +97,7 @@ func NewWithRedisCache(redisURL, openAIKey string, opts ...ClientOption) (*QLens
 	
 	// Add OpenAI provider
 	if openAIKey != "" {
-		config.Providers[domain.ProviderOpenAI] = ProviderConfig{
+		config.Providers[domain.ProviderOpenAI] = types.ProviderConfig{
 			Provider: domain.ProviderOpenAI,
 			APIKey:   openAIKey,
 			Enabled:  true,
@@ -109,7 +109,7 @@ func NewWithRedisCache(redisURL, openAIKey string, opts ...ClientOption) (*QLens
 	
 	client := &QLens{
 		config:    config,
-		providers: make(map[domain.Provider]ProviderClient),
+		providers: make(map[domain.Provider]types.ProviderClient),
 		cache:     cache, // Use Redis cache instead of in-memory
 		startTime: time.Now(),
 	}

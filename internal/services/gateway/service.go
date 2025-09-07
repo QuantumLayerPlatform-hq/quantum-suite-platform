@@ -138,10 +138,8 @@ func (s *Service) setupRouter() {
 
 	s.router = gin.New()
 	
-	// Add middleware
+	// Add base middleware (no auth)
 	s.router.Use(s.loggingMiddleware())
-	s.router.Use(s.authenticationMiddleware())
-	s.router.Use(s.tenantValidationMiddleware())
 	s.router.Use(gin.Recovery())
 
 	// Health endpoints (no auth required)
@@ -154,6 +152,8 @@ func (s *Service) setupRouter() {
 
 	// API endpoints (auth required)
 	api := s.router.Group("/v1")
+	api.Use(s.authenticationMiddleware())
+	api.Use(s.tenantValidationMiddleware())
 	{
 		api.GET("/models", s.handleListModels)
 		api.POST("/completions", s.handleCreateCompletion)
@@ -161,6 +161,18 @@ func (s *Service) setupRouter() {
 		api.GET("/usage", s.handleGetUsage)
 		api.GET("/metrics", s.handleMetrics)
 	}
+}
+
+// ConfigureSwagger sets up Swagger documentation routes
+func (s *Service) ConfigureSwagger(swaggerHandler gin.HandlerFunc) {
+	// Swagger documentation (no auth required)
+	s.router.GET("/swagger/*any", swaggerHandler)
+	s.router.GET("/docs", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
+	s.router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
 }
 
 func (s *Service) Handler() http.Handler {
@@ -202,8 +214,11 @@ func (s *Service) loggingMiddleware() gin.HandlerFunc {
 
 func (s *Service) authenticationMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Skip auth for health endpoints
-		if strings.HasPrefix(c.Request.URL.Path, "/health") {
+		// Skip auth for health endpoints and Swagger documentation
+		if strings.HasPrefix(c.Request.URL.Path, "/health") ||
+		   strings.HasPrefix(c.Request.URL.Path, "/swagger") ||
+		   strings.HasPrefix(c.Request.URL.Path, "/docs") ||
+		   c.Request.URL.Path == "/" {
 			c.Next()
 			return
 		}

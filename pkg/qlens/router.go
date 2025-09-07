@@ -11,37 +11,16 @@ import (
 	"time"
 
 	"github.com/quantum-suite/platform/internal/domain"
+	"github.com/quantum-suite/platform/pkg/qlens-types"
 )
 
-// Router handles model selection and load balancing across providers
-type Router interface {
-	// SelectProvider chooses the best provider for a request
-	SelectProvider(ctx context.Context, req *CompletionRequest) (domain.Provider, error)
-	
-	// SelectEmbeddingProvider chooses the best provider for embedding requests
-	SelectEmbeddingProvider(ctx context.Context, req *EmbeddingRequest) (domain.Provider, error)
-	
-	// UpdateProviderHealth updates the health status of a provider
-	UpdateProviderHealth(provider domain.Provider, health ProviderHealth)
-	
-	// GetProviderHealth returns the current health of a provider
-	GetProviderHealth(provider domain.Provider) (ProviderHealth, bool)
-	
-	// GetAvailableProviders returns all healthy providers
-	GetAvailableProviders() []domain.Provider
-	
-	// RegisterProvider registers a new provider
-	RegisterProvider(provider domain.Provider, config ProviderConfig) error
-	
-	// UnregisterProvider removes a provider
-	UnregisterProvider(provider domain.Provider) error
-}
+// Router interface is defined in interfaces.go
 
 // DefaultRouter implements the Router interface with load balancing and failover
 type DefaultRouter struct {
 	mu              sync.RWMutex
-	providers       map[domain.Provider]ProviderConfig
-	providerHealth  map[domain.Provider]ProviderHealth
+	providers       map[domain.Provider]types.ProviderConfig
+	providerHealth  map[domain.Provider]types.ProviderHealth
 	defaultProvider domain.Provider
 	loadBalancing   bool
 	autoFailover    bool
@@ -56,10 +35,10 @@ type DefaultRouter struct {
 }
 
 // NewDefaultRouter creates a new default router
-func NewDefaultRouter(config *ClientConfig) *DefaultRouter {
+func NewDefaultRouter(config *types.ClientConfig) *DefaultRouter {
 	router := &DefaultRouter{
-		providers:           make(map[domain.Provider]ProviderConfig),
-		providerHealth:      make(map[domain.Provider]ProviderHealth),
+		providers:           make(map[domain.Provider]types.ProviderConfig),
+		providerHealth:      make(map[domain.Provider]types.ProviderHealth),
 		roundRobinIndex:     make(map[string]int),
 		loadBalancing:       config.LoadBalancing,
 		autoFailover:        config.AutoFailover,
@@ -80,7 +59,7 @@ func NewDefaultRouter(config *ClientConfig) *DefaultRouter {
 }
 
 // SelectProvider implements the Router interface
-func (r *DefaultRouter) SelectProvider(ctx context.Context, req *CompletionRequest) (domain.Provider, error) {
+func (r *DefaultRouter) SelectProvider(ctx context.Context, req *types.CompletionRequest) (domain.Provider, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	
@@ -120,7 +99,7 @@ func (r *DefaultRouter) SelectProvider(ctx context.Context, req *CompletionReque
 }
 
 // SelectEmbeddingProvider implements the Router interface
-func (r *DefaultRouter) SelectEmbeddingProvider(ctx context.Context, req *EmbeddingRequest) (domain.Provider, error) {
+func (r *DefaultRouter) SelectEmbeddingProvider(ctx context.Context, req *types.EmbeddingRequest) (domain.Provider, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	
@@ -154,7 +133,7 @@ func (r *DefaultRouter) SelectEmbeddingProvider(ctx context.Context, req *Embedd
 }
 
 // UpdateProviderHealth implements the Router interface
-func (r *DefaultRouter) UpdateProviderHealth(provider domain.Provider, health ProviderHealth) {
+func (r *DefaultRouter) UpdateProviderHealth(provider domain.Provider, health types.ProviderHealth) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	
@@ -162,7 +141,7 @@ func (r *DefaultRouter) UpdateProviderHealth(provider domain.Provider, health Pr
 }
 
 // GetProviderHealth implements the Router interface
-func (r *DefaultRouter) GetProviderHealth(provider domain.Provider) (ProviderHealth, bool) {
+func (r *DefaultRouter) GetProviderHealth(provider domain.Provider) (types.ProviderHealth, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	
@@ -179,7 +158,7 @@ func (r *DefaultRouter) GetAvailableProviders() []domain.Provider {
 }
 
 // RegisterProvider implements the Router interface
-func (r *DefaultRouter) RegisterProvider(provider domain.Provider, config ProviderConfig) error {
+func (r *DefaultRouter) RegisterProvider(provider domain.Provider, config types.ProviderConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	
@@ -190,7 +169,7 @@ func (r *DefaultRouter) RegisterProvider(provider domain.Provider, config Provid
 	r.providers[provider] = config
 	
 	// Initialize health status
-	r.providerHealth[provider] = ProviderHealth{
+	r.providerHealth[provider] = types.ProviderHealth{
 		Status:        domain.ProviderHealthHealthy,
 		LatencyMS:     0,
 		ErrorRate:     0,
@@ -412,7 +391,7 @@ func (r *DefaultRouter) checkProviderHealth(provider domain.Provider) {
 		message = "Health check failed"
 	}
 	
-	health := ProviderHealth{
+	health := types.ProviderHealth{
 		Status:        status,
 		LatencyMS:     latency,
 		ErrorRate:     errorRate,
@@ -432,6 +411,36 @@ func (r *DefaultRouter) simulateHealthCheck(provider domain.Provider) bool {
 // Stop gracefully shuts down the router
 func (r *DefaultRouter) Stop() {
 	close(r.stopHealthCheck)
+}
+
+// Close implements the Router interface
+func (r *DefaultRouter) Close() error {
+	r.Stop()
+	return nil
+}
+
+// Configure implements the Router interface
+func (r *DefaultRouter) Configure(config types.RouterConfig) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	// Update router configuration based on config
+	// For now, this is a placeholder
+	return nil
+}
+
+// HealthCheck implements the Router interface
+func (r *DefaultRouter) HealthCheck(ctx context.Context) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	// Check if router has any healthy providers
+	healthyProviders := r.getHealthyProviders()
+	if len(healthyProviders) == 0 {
+		return fmt.Errorf("no healthy providers available")
+	}
+	
+	return nil
 }
 
 // Helper functions for model validation
